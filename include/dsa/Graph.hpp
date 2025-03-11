@@ -1,5 +1,6 @@
 #ifndef GRAPH_HPP
 #define GRAPH_HPP
+#include <algorithm>
 #include <vector>
 
 using adjList = std::vector<std::vector<std::pair<int, int>>>;
@@ -25,6 +26,7 @@ public:
 
     bool isEmpty() const { return vertices == 0 && edges == 0; }
 
+    std::pair<std::vector<std::tuple<int, int, int, int>>, int> getAsPair();
 private:
     bool edgeExists(int u, int v) const;
 };

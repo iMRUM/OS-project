@@ -1,5 +1,5 @@
 #include "../../include/dsa/Graph.hpp"
-#include <algorithm>
+
 
 // Constructor with vertices and edges
 Graph::Graph(int v, int e) : vertices(v), edges(0) {
@@ -79,6 +79,24 @@ bool Graph::edgeExists(int u, int v) const {
         }
     }
     return false;
+}
+
+std::pair<std::vector<std::tuple<int, int, int, int>>, int> Graph::getAsPair() {
+    {
+        std::vector<std::tuple<int, int, int, int>> edges;
+        int n = getVertices();
+        // Extract edges from the Graph's adjacency list
+        const auto& adjList = getGraph();
+        for (int source = 0; source < n; ++source) {
+            for (const auto& edge : adjList[source]) {
+                int target = edge.first;
+                int weight = edge.second;
+                int id = edges.size();
+                edges.emplace_back(source, target, weight, id);
+            }
+        }
+        return {edges, n};
+    }
 }
 
 // Remove an edge from the adjacency list directly within removeEdge method
