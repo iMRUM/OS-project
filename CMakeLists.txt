@@ -35,6 +35,7 @@ target_sources(dsa_lib
 # Create a test executable for Graph tests
 add_executable(graph_tests
         tests/dsa/Graph_test.cpp
+        tests/dsa/Factory_Algo_test.cpp
 )
 
 # Link the test executable with your library and test framework

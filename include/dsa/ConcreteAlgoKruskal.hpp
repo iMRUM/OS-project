@@ -14,10 +14,9 @@ private:
     vector<tuple<int, int, int, int>> kruskal(const vector<tuple<int, int, int, int>>& graph_edges,
                                                         int n);
 
-protected:
-    MST * execute(Graph &graph) override;
 
 public:
     ~ConcreteAlgoKruskal() override = default;
+    MST * execute(Graph &graph) override;
 };
 #endif //CONCRETEALGOKRUSKAL_HPP

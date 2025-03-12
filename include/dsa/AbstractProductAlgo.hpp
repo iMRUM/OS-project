@@ -11,7 +11,7 @@ using namespace std;
 
 class AbstractProductAlgo : public AbstractProduct {
 protected:
-    virtual MST *execute(Graph &graph);
+    virtual MST *execute(Graph &graph) = 0;
 
 public:
     AbstractProductAlgo() = default;
