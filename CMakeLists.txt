@@ -17,6 +17,12 @@ add_library(dsa_lib
         src/dsa/ConcreteAlgoPrim.cpp
         include/server/MSTServer.hpp
         src/server/MSTServer.cpp
+        include/ActObj/Proxy.hpp
+        include/ActObj/MethodRequest.hpp
+        include/ActObj/ActivationQ.hpp
+        include/ActObj/Scheduler.hpp
+        include/ActObj/Servant.hpp
+        include/ActObj/Future.hpp
 )
 
 # Set include directories for the library
