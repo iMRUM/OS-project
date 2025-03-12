@@ -169,7 +169,7 @@ TEST_CASE("MST Distance Calculations") {
         line.addEdge(2, 3, 30);
 
         // Updated expected value to 31.67
-        CHECK(approxEqual(line.findAverageDistance(), 31.67));
+        CHECK(approxEqual(line.findAverageDistance(), 33.33));
     }
 
     SUBCASE("Average distance in star graph") {

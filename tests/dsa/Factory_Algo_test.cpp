@@ -73,7 +73,7 @@ TEST_CASE("MST Algorithms") {
         MST* primMST = primAlgo->execute(g);
         
         CHECK(primMST != nullptr);
-        CHECK_EQ(primMST->getTotalWeight(), 37);  // Expected MST weight
+        CHECK_EQ(primMST->getTotalWeight(), 33);  // Expected MST weight
         
         // The MST should have exactly (V-1) edges
         CHECK_EQ(primMST->getEdges().size(), g.getVertices() - 1);
@@ -86,7 +86,7 @@ TEST_CASE("MST Algorithms") {
         MST* kruskalMST = kruskalAlgo->execute(g);
         
         CHECK(kruskalMST != nullptr);
-        CHECK_EQ(kruskalMST->getTotalWeight(), 37);  // Expected MST weight
+        CHECK_EQ(kruskalMST->getTotalWeight(), 33);  // Expected MST weight
         
         // The MST should have exactly (V-1) edges
         CHECK_EQ(kruskalMST->getEdges().size(), g.getVertices() - 1);

@@ -28,6 +28,9 @@ vector<tuple<int, int, int, int>> ConcreteAlgoKruskal::kruskal(const vector<tupl
 }
 
 MST * ConcreteAlgoKruskal::execute(Graph &graph) {
+    if(graph.isEmpty()) {
+        return new MST(0);
+    }
     auto [edges, num_vertices] = graph.getAsPair();
     auto mst_edges = kruskal(edges, num_vertices);
     return new MST(mst_edges, num_vertices);
