@@ -15,6 +15,8 @@ add_library(dsa_lib
         src/dsa/ConcreteAlgoFactory.cpp
         src/dsa/ConcreteAlgoKruskal.cpp
         src/dsa/ConcreteAlgoPrim.cpp
+        include/server/MSTServer.hpp
+        src/server/MSTServer.cpp
 )
 
 # Set include directories for the library
