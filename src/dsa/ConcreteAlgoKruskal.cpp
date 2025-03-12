@@ -26,3 +26,9 @@ vector<tuple<int, int, int, int>> ConcreteAlgoKruskal::kruskal(const vector<tupl
         return spanning_tree;
     }
 }
+
+MST * ConcreteAlgoKruskal::execute(Graph &graph) {
+    auto [edges, num_vertices] = graph.getAsPair();
+    auto mst_edges = kruskal(edges, num_vertices);
+    return new MST(mst_edges, num_vertices);
+}

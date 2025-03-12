@@ -44,3 +44,9 @@ vector<tuple<int, int, int, int> > ConcreteAlgoPrim::prim(const vector<tuple<int
         return res;
     }
 }
+
+MST * ConcreteAlgoPrim::execute(Graph &graph) {
+    auto [edges, num_vertices] = graph.getAsPair();
+    auto mst_edges = prim(edges, num_vertices);
+    return new MST(mst_edges, num_vertices);
+}
