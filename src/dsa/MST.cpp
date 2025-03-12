@@ -7,6 +7,20 @@ MST::MST(int vertices) : totalWeight(0), numVertices(vertices) {
     mstAdjList.resize(vertices);
 }
 
+MST::MST(const std::vector<std::tuple<int, int, int, int> > &edges, int vertices) : totalWeight(0),
+    numVertices(vertices) {
+    if (vertices < 0) {
+        throw std::invalid_argument("Number of vertices cannot be negative");
+    }
+    mstAdjList.resize(vertices);
+
+    for (const auto &edge: edges) {
+        int from, to, weight, id;
+        std::tie(from, to, weight, id) = edge;
+        addEdge(from, to, weight);
+    }
+}
+
 void MST::addEdge(int u, int v, int weight) {
     if (u < 0 || u >= numVertices || v < 0 || v >= numVertices) {
         throw std::out_of_range("Vertex index out of range");
@@ -24,7 +38,7 @@ int MST::getTotalWeight() const {
     return totalWeight;
 }
 
-const std::set<edge>& MST::getEdges() const {
+const std::set<edge> &MST::getEdges() const {
     return edges;
 }
 
@@ -33,7 +47,7 @@ int MST::getNumVertices() const {
 }
 
 
-const adjList& MST::getMstAdjList() const {
+const adjList &MST::getMstAdjList() const {
     return mstAdjList;
 }
 
@@ -56,14 +70,14 @@ int MST::findLongestDistance() const {
 double MST::findAverageDistance() const {
     if (numVertices <= 1) return 0.0;
 
-    std::vector<std::vector<int>> dist = floydWarshall();
+    std::vector<std::vector<int> > dist = floydWarshall();
 
     long long totalDistance = 0;
     int totalPairs = 0;
 
     for (int i = 0; i < numVertices; i++) {
         for (int j = 0; j < numVertices; j++) {
-            if (i == j) continue;  // Skip self-loops
+            if (i == j) continue; // Skip self-loops
             if (dist[i][j] >= std::numeric_limits<int>::max() / 2) continue;
 
             totalDistance += dist[i][j];
@@ -71,10 +85,10 @@ double MST::findAverageDistance() const {
         }
     }
 
-    return (totalPairs > 0) ? (double)totalDistance / totalPairs : 0.0;
+    return (totalPairs > 0) ? (double) totalDistance / totalPairs : 0.0;
 }
 
-int MST::findShortestPathWithMstEdge(const adjList& originalGraph, int src, int dest) const {
+int MST::findShortestPathWithMstEdge(const adjList &originalGraph, int src, int dest) const {
     if (src < 0 || src >= numVertices || dest < 0 || dest >= numVertices) {
         throw std::out_of_range("Vertex index out of range");
     }
@@ -83,27 +97,27 @@ int MST::findShortestPathWithMstEdge(const adjList& originalGraph, int src, int 
     const int INF = std::numeric_limits<int>::max();
 
     // Mark MST edges in a set for quick lookup
-    std::set<std::pair<int, int>> mstEdges;
+    std::set<std::pair<int, int> > mstEdges;
     for (int u = 0; u < numVertices; ++u) {
-        for (const auto &neighbor : mstAdjList[u]) {
+        for (const auto &neighbor: mstAdjList[u]) {
             int v = neighbor.first;
             mstEdges.insert({u, v});
-            mstEdges.insert({v, u});  // Because it's an undirected graph
+            mstEdges.insert({v, u}); // Because it's an undirected graph
         }
     }
 
     // Priority queue for Dijkstra's algorithm
     // Elements are tuples of (distance, vertex, usedMstEdge)
-    using State = std::tuple<int, int, bool>;  // (distance, vertex, hasUsedMstEdge)
-    std::priority_queue<State, std::vector<State>, std::greater<State>> pq;
+    using State = std::tuple<int, int, bool>; // (distance, vertex, hasUsedMstEdge)
+    std::priority_queue<State, std::vector<State>, std::greater<State> > pq;
 
     // Distance array: dist[node][mstUsed] -> shortest distance to node
     // mstUsed = 1 means path has used an MST edge
-    std::vector<std::vector<int>> dist(numVertices, std::vector<int>(2, INF));
+    std::vector<std::vector<int> > dist(numVertices, std::vector<int>(2, INF));
 
     // Start Dijkstra from the source
-    dist[src][0] = 0;  // Distance to src without using an MST edge is 0
-    pq.push({0, src, false});  // Initially, we haven't used an MST edge
+    dist[src][0] = 0; // Distance to src without using an MST edge is 0
+    pq.push({0, src, false}); // Initially, we haven't used an MST edge
 
     while (!pq.empty()) {
         auto [currentDist, node, hasUsedMstEdge] = pq.top();
@@ -115,14 +129,14 @@ int MST::findShortestPathWithMstEdge(const adjList& originalGraph, int src, int 
         }
 
         // Explore neighbors of the current node
-        for (const auto &neighbor : originalGraph[node]) {
+        for (const auto &neighbor: originalGraph[node]) {
             int adjNode = neighbor.first;
             int weight = neighbor.second;
-            bool isMstEdge = (mstEdges.count({node, adjNode}) > 0);  // Check if edge belongs to MST
+            bool isMstEdge = (mstEdges.count({node, adjNode}) > 0); // Check if edge belongs to MST
 
             // Case 1: If we haven't used an MST edge yet, and this edge is part of the MST, use it
             if (!hasUsedMstEdge && isMstEdge && currentDist + weight < dist[adjNode][1]) {
-                dist[adjNode][1] = currentDist + weight;  // Mark this path as using an MST edge
+                dist[adjNode][1] = currentDist + weight; // Mark this path as using an MST edge
                 pq.push({dist[adjNode][1], adjNode, true});
             }
 
@@ -134,7 +148,7 @@ int MST::findShortestPathWithMstEdge(const adjList& originalGraph, int src, int 
 
             // Case 3: If we haven't used an MST edge yet, explore non-MST edges too
             if (!hasUsedMstEdge && currentDist + weight < dist[adjNode][0]) {
-                dist[adjNode][0] = currentDist + weight;  // Mark this path as not using an MST edge yet
+                dist[adjNode][0] = currentDist + weight; // Mark this path as not using an MST edge yet
                 pq.push({dist[adjNode][0], adjNode, false});
             }
         }
@@ -162,7 +176,7 @@ std::string MST::getLongestDistanceAsString() const {
     return oss.str();
 }
 
-void MST::dfs(int node, int distance, std::vector<bool>& visited, int& maxDist, int& farthestNode) const {
+void MST::dfs(int node, int distance, std::vector<bool> &visited, int &maxDist, int &farthestNode) const {
     visited[node] = true;
 
     if (distance > maxDist) {
@@ -170,26 +184,26 @@ void MST::dfs(int node, int distance, std::vector<bool>& visited, int& maxDist, 
         farthestNode = node;
     }
 
-    for (const auto& neighbor : mstAdjList[node]) {
+    for (const auto &neighbor: mstAdjList[node]) {
         int nextNode = neighbor.first;
-        int weight = neighbor.second;  // Use actual edge weight
+        int weight = neighbor.second; // Use actual edge weight
         if (!visited[nextNode]) {
-            dfs(nextNode, distance + weight, visited, maxDist, farthestNode);  // Add actual weight
+            dfs(nextNode, distance + weight, visited, maxDist, farthestNode); // Add actual weight
         }
     }
 }
 
-std::vector<std::vector<int>> MST::floydWarshall() const {
+std::vector<std::vector<int> > MST::floydWarshall() const {
     const int INF = std::numeric_limits<int>::max() / 2;
 
-    std::vector<std::vector<int>> dist(numVertices, std::vector<int>(numVertices, INF));
+    std::vector<std::vector<int> > dist(numVertices, std::vector<int>(numVertices, INF));
 
     for (int i = 0; i < numVertices; i++) {
         dist[i][i] = 0;
     }
 
     for (int u = 0; u < numVertices; u++) {
-        for (const auto& edge : mstAdjList[u]) {
+        for (const auto &edge: mstAdjList[u]) {
             int v = edge.first;
             int weight = edge.second;
             dist[u][v] = weight;
@@ -202,7 +216,7 @@ std::vector<std::vector<int>> MST::floydWarshall() const {
                 if (dist[i][k] < INF && dist[k][j] < INF &&
                     dist[i][k] + dist[k][j] < dist[i][j]) {
                     dist[i][j] = dist[i][k] + dist[k][j];
-                    }
+                }
             }
         }
     }

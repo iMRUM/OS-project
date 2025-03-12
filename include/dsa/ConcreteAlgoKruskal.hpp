@@ -5,6 +5,7 @@
 #ifndef CONCRETEALGOKRUSKAL_HPP
 #define CONCRETEALGOKRUSKAL_HPP
 #include "AbstractProductAlgo.hpp"
+#include "UnionFind.hpp"
 class ConcreteAlgoKruskal : public AbstractProductAlgo {
 public:
     // Implementation of Kruskal's algorithm for finding MST
