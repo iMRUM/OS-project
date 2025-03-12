@@ -20,6 +20,8 @@ protected:
     ~ConcreteAlgoFactory() override = default;
 
 public:
-    AbstractProduct * createProduct(int id) override;
+    AbstractProduct * createProduct(int id) override {
+        return _algorithms.at(id);
+    }
 };
 #endif //CONCRETEALGOFACTORY_HPP

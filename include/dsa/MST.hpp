@@ -23,7 +23,7 @@ private:
 
 public:
     MST(int vertices);
-    
+    MST(const std::vector<std::tuple<int, int, int, int>>& edges, int vertices);
     void addEdge(int u, int v, int weight);
     
     int getTotalWeight() const;
