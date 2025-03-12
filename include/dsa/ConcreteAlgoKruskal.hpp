@@ -7,11 +7,17 @@
 #include "AbstractProductAlgo.hpp"
 #include "UnionFind.hpp"
 class ConcreteAlgoKruskal : public AbstractProductAlgo {
-public:
+private:
     // Implementation of Kruskal's algorithm for finding MST
     // Assumptions: We receive the edges of a connected graph.
     // Complexity: O(m log n)
     vector<tuple<int, int, int, int>> kruskal(const vector<tuple<int, int, int, int>>& graph_edges,
                                                         int n);
+
+protected:
+    MST * execute(Graph &graph) override;
+
+public:
+    ~ConcreteAlgoKruskal() override = default;
 };
 #endif //CONCRETEALGOKRUSKAL_HPP

@@ -23,9 +23,12 @@ struct Edge
 class ConcreteAlgoPrim : public AbstractProductAlgo {
 private:
     vector<tuple<int, int, int, int>> _prim(const vector<vector<Edge>>& adj, int n);
-public:
     vector<tuple<int, int, int, int>> prim(const vector<tuple<int, int, int, int>>& edges, int n);
 
+protected:
+    MST * execute(Graph &graph) override;
 
+public:
+    ~ConcreteAlgoPrim() override = default;
 };
 #endif //CONCRETEALGOPRIM_HPP
