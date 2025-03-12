@@ -16,6 +16,6 @@ protected:
 public:
     AbstractProductAlgo() = default;
 
-    virtual ~AbstractProductAlgo() = default;
+    ~AbstractProductAlgo() override = 0;
 };
 #endif //MSTALGO_HPP
