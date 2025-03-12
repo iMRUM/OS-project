@@ -6,6 +6,9 @@
 #define MSTALGO_HPP
 #include "../Factory/AbstractProduct.hpp"
 #include <tuple>
+#include <set>
+#include <vector>
+#include <algorithm>
 #include "MST.hpp"
 using namespace std;
 

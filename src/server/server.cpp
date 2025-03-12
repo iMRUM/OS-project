@@ -1,3 +1,7 @@
-//
-// Created by imry on 3/12/25.
-//
+#include "../../include/server/MSTServer.hpp"
+
+int main() {
+    MSTServer server;
+    server.start();
+    return 0;
+}

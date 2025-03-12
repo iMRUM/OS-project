@@ -6,7 +6,7 @@
 #define CONCRETEALGOPRIM_HPP
 #define INF 0x3f3f3f3f
 #include "AbstractProductAlgo.hpp"
-
+#include <iostream>
 struct Edge {
     int w = INF, to = -1, id;
 
