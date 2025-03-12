@@ -10,12 +10,10 @@
 using namespace std;
 
 class AbstractProductAlgo : public AbstractProduct {
-protected:
-    virtual MST *execute(Graph &graph) = 0;
 
 public:
     AbstractProductAlgo() = default;
-
+    virtual MST *execute(Graph &graph) = 0;
     ~AbstractProductAlgo() override = 0;
 };
 #endif //MSTALGO_HPP

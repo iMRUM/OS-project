@@ -9,12 +9,10 @@
 #include "AbstractProduct.hpp"
 
 class AbstractFactory {
-protected:
+public:
     AbstractFactory() = default;
 
     virtual ~AbstractFactory() = default;
-
-public:
     virtual AbstractProduct *createProduct(int id) = 0;
 };
 #endif //ABSTRACTFACTORY_HPP

@@ -25,7 +25,9 @@ void MST::addEdge(int u, int v, int weight) {
     if (u < 0 || u >= numVertices || v < 0 || v >= numVertices) {
         throw std::out_of_range("Vertex index out of range");
     }
-
+    if (weight <= 0) {
+        throw std::invalid_argument("Weight cannot be non-positive");
+    }
     if (u > v) std::swap(u, v);
     edges.insert(std::make_tuple(u, v, weight));
     totalWeight += weight;

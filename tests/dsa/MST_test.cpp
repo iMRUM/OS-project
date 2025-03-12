@@ -252,7 +252,6 @@ TEST_CASE("MST Edge Cases and Robustness") {
         CHECK_EQ(mst.getTotalWeight(), 30);
 
         // Longest distance calculation should still work
-        // but may depend on implementation specifics
         int dist = mst.findLongestDistance();
         CHECK((dist == 10 || dist == 20)); // Max distance in either component
     }
@@ -274,26 +273,25 @@ TEST_CASE("MST Edge Cases and Robustness") {
         CHECK_EQ(mst.findLongestDistance(), 4950); // Sum of weights from 1 to 99
     }
 
-    SUBCASE("Adding edges with zero weight") {
+    SUBCASE("Adding edges with zero weight should throw exception") {
         MST mst(3);
-        mst.addEdge(0, 1, 0);
-        mst.addEdge(1, 2, 0);
 
-        CHECK_EQ(mst.getTotalWeight(), 0);
+        // With your implementation, adding a zero-weight edge should throw an exception
+        CHECK_THROWS_AS(mst.addEdge(0, 1, 0), std::invalid_argument);
+        CHECK_THROWS_AS(mst.addEdge(1, 2, 0), std::invalid_argument);
+
+        // Verify we can still add positive weights
+        CHECK_NOTHROW(mst.addEdge(0, 1, 1));
+        CHECK_NOTHROW(mst.addEdge(1, 2, 1));
+
+        // Check the MST properties with valid weights
+        CHECK_EQ(mst.getTotalWeight(), 2);
         CHECK_EQ(mst.getEdges().size(), 2);
-        // For a zero-weight path, the distance is 0 between all connected nodes
-        CHECK_EQ(mst.findLongestDistance(), 0);
+        CHECK_EQ(mst.findLongestDistance(), 2);
     }
-
     SUBCASE("Adding edges with negative weight") {
         MST mst(3);
-        mst.addEdge(0, 1, -5);
-        mst.addEdge(1, 2, -10);
-
-        CHECK_EQ(mst.getTotalWeight(), -15);
-        CHECK_EQ(mst.getEdges().size(), 2);
-        // With negative weights, the longest distance should be -5 + (-10) = -15
-        CHECK_EQ(mst.findLongestDistance(), -15);
+        CHECK_THROWS_AS(mst.addEdge(0, 1, -5), std::invalid_argument);
     }
 }
 

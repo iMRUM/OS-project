@@ -16,10 +16,8 @@ typedef void (*MSTAlgo)(const vector<tuple<int, int, int, int>>& edges, int n);
 class ConcreteAlgoFactory : public AbstractFactory {
 private:
     std::map<int, AbstractProductAlgo*> _algorithms = {{0, new ConcreteAlgoPrim()},{1,new ConcreteAlgoKruskal()}};
-protected:
-    ~ConcreteAlgoFactory() override = default;
-
 public:
+    ~ConcreteAlgoFactory() override = default;
     AbstractProduct * createProduct(int id) override {
         return _algorithms.at(id);
     }
