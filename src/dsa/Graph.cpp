@@ -82,21 +82,42 @@ bool Graph::edgeExists(int u, int v) const {
 }
 
 std::pair<std::vector<std::tuple<int, int, int, int>>, int> Graph::getAsPair() {
-    {
-        std::vector<std::tuple<int, int, int, int>> edges;
-        int n = getVertices();
-        // Extract edges from the Graph's adjacency list
-        const auto& adjList = getGraph();
-        for (int source = 0; source < n; ++source) {
-            for (const auto& edge : adjList[source]) {
-                int target = edge.first;
-                int weight = edge.second;
-                int id = edges.size();
-                edges.emplace_back(source, target, weight, id);
+    std::vector<std::tuple<int, int, int, int>> edgesList;
+    int n = getVertices();
+
+    if (n == 0) {
+        // Return empty edges list and 0 vertices if graph is empty
+        return {edgesList, 0};
+    }
+
+    // Extract edges from the Graph's adjacency list
+    // To avoid duplicate edges in undirected graphs, we'll only add each edge once
+    // by ensuring source < target
+    std::set<std::pair<int, int>> addedEdges; // To track edges we've already added
+
+    int edgeId = 0;
+    for (int source = 0; source < n; ++source) {
+        for (const auto& edge : graph[source]) {
+            int target = edge.first;
+            int weight = edge.second;
+
+            // Create a canonical representation of the edge (smaller vertex first)
+            std::pair<int, int> canonicalEdge;
+            if (source < target) {
+                canonicalEdge = {source, target};
+            } else {
+                canonicalEdge = {target, source};
+            }
+
+            // Only add this edge if we haven't added it yet
+            if (addedEdges.find(canonicalEdge) == addedEdges.end()) {
+                edgesList.emplace_back(source, target, weight, edgeId++);
+                addedEdges.insert(canonicalEdge);
             }
         }
-        return {edges, n};
     }
+
+    return {edgesList, n};
 }
 
 // Remove an edge from the adjacency list directly within removeEdge method

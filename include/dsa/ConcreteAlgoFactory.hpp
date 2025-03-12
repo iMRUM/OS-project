@@ -5,21 +5,28 @@
 #ifndef CONCRETEALGOFACTORY_HPP
 #define CONCRETEALGOFACTORY_HPP
 #include <map>
+#include <memory>
 
 #include "AbstractProductAlgo.hpp"
 #include "ConcreteAlgoKruskal.hpp"
 #include "ConcreteAlgoPrim.hpp"
 #include "../Factory/AbstractFactory.hpp"
 
-typedef void (*MSTAlgo)(const vector<tuple<int, int, int, int>>& edges, int n);
+//typedef void (*MSTAlgo)(const vector<tuple<int, int, int, int>>& edges, int n);
 
 class ConcreteAlgoFactory : public AbstractFactory {
-private:
-    std::map<int, AbstractProductAlgo*> _algorithms = {{0, new ConcreteAlgoPrim()},{1,new ConcreteAlgoKruskal()}};
 public:
     ~ConcreteAlgoFactory() override = default;
-    AbstractProduct * createProduct(int id) override {
-        return _algorithms.at(id);
+    ConcreteAlgoFactory() = default;
+
+    AbstractProductAlgo* createProduct(int id) override {
+        if (id == 0) {
+            return new ConcreteAlgoPrim();
+        }
+        if (id == 1) {
+            return new ConcreteAlgoKruskal();
+        }
+        return nullptr;
     }
 };
 #endif //CONCRETEALGOFACTORY_HPP

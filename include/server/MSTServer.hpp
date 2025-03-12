@@ -24,6 +24,7 @@
 #include <thread>
 #include "../dsa/Graph.hpp"
 #include "../dsa/MST.hpp"
+#include "../dsa/ConcreteAlgoFactory.hpp"
 
 // Function to get sockaddr, IPv4 or IPv6:
 void *get_in_addr(struct sockaddr *sa);
@@ -38,9 +39,13 @@ class MSTServer {
 private:
     int listener;
     bool running;
-    Graph sharedGraph;
+    Graph shared_graph;
     std::mutex calculator_mutex;
     std::vector<std::thread> client_threads;
+    ConcreteAlgoFactory algo_factory;
+    std::map<int, int> clientCommandState; // Maps socket_fd to command state
+    std::map<int, int> clientPointsNeeded; // Maps socket_fd to points needed
+    std::map<int, std::vector<std::string> > clientPendingLines; // Maps socket_fd to pending lines
 
     void stop();
 
@@ -48,12 +53,22 @@ private:
 
     void setupSocket();
 
-    void processCommand(int socket_fd, std::string& command);
+    void processCommand(int socket_fd, std::string &command);
+
+    bool processGraphEdges(int socket_fd, const std::vector<std::string> &edges);
+
+    std::string calculateMST(const std::string &algorithm);
+
+    std::string printGraph();
+
+    void cleanupClient(int socket_fd);
+
+    void resetGraph();
+
 public:
-    MSTServer(): listener(-1), running(false) {
+    MSTServer(): listener(-1), running(false),shared_graph(0,0){
     }
 
     void start();
-
 };
 #endif //MSTSERVER_HPP
