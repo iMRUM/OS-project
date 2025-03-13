@@ -25,6 +25,7 @@ add_library(dsa_lib
         include/factory/AbstractProductAlgo.hpp
         src/active_object/MSTServant.cpp
         src/active_object/MSTServant.cpp
+        src/factory/AbstractProduct.cpp
 )
 
 # Set include directories for the library

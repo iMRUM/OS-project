@@ -357,10 +357,10 @@ std::string MSTServer::calculateMST(const std::string &algorithm) {
     try {
         if (algorithm == "Prim") {
             std::cout << "Creating Prim algorithm object" << std::endl;
-            algo = algo_factory.createProduct(0); // Prim algorithm
+            algo = algo_factory.createProduct(PRIM); // Prim algorithm
         } else if (algorithm == "Kruskal") {
             std::cout << "Creating Kruskal algorithm object" << std::endl;
-            algo = algo_factory.createProduct(1); // Kruskal algorithm
+            algo = algo_factory.createProduct(KRUSKAL); // Kruskal algorithm
         }
 
         if (!algo) {

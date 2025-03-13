@@ -13,6 +13,6 @@ class AbstractProductAlgo : public AbstractProduct {
 public:
     AbstractProductAlgo() = default;
     virtual MST *execute(Graph &graph) = 0;
-    ~AbstractProductAlgo() override = 0;
+    ~AbstractProductAlgo() override = default;
 };
 #endif //MSTALGO_HPP
