@@ -22,6 +22,7 @@ private:
     adjList mstAdjList;
 
 public:
+    MST(){}
     MST(int vertices);
     MST(const std::vector<std::tuple<int, int, int, int>>& edges, int vertices);
     void addEdge(int u, int v, int weight);
@@ -45,7 +46,7 @@ public:
     std::string getAverageDistanceAsString() const;
     
     std::string getLongestDistanceAsString() const;
-
+    std::string toString() const;
 private:
     void dfs(int node, int distance, std::vector<bool>& visited, int& maxDist, int& farthestNode) const;
     

@@ -14,6 +14,9 @@ void MSTServer::start() {
     std::cout << "Threaded MST server started on port " << PORT << std::endl;
     std::cout << "Waiting for connections..." << std::endl;
 
+    // Create the MSTPipeline
+    mstPipeline = std::make_unique<MSTPipeline>();
+
     // Main accept() loop
     while (1) {
         addrlen = sizeof client_addr;
@@ -42,6 +45,11 @@ void MSTServer::stop() {
         close(listener);
         listener = -1;
     }
+
+    // Shutdown the pipeline
+    if (mstPipeline) {
+        mstPipeline->shutdown();
+    }
 }
 
 void MSTServer::handleClient(ClientData *client_data) {
@@ -49,11 +57,11 @@ void MSTServer::handleClient(ClientData *client_data) {
     char remoteIP[INET6_ADDRSTRLEN];
 
     // Print client connection information
-    printf("Thread started for client on socket %d from %s\n total of %lu threads",
+    printf("Thread started for client on socket %d from %s\n",
            socket_fd,
            inet_ntop(client_data->address.ss_family,
                      get_in_addr((struct sockaddr *) &client_data->address),
-                     remoteIP, INET6_ADDRSTRLEN), client_threads.size());
+                     remoteIP, INET6_ADDRSTRLEN));
 
     // Free the client_data structure as we've extracted what we need
     delete client_data;
@@ -79,7 +87,7 @@ void MSTServer::handleClient(ClientData *client_data) {
         // Null-terminate the received data
         buf[nbytes] = '\0';
 
-        // Process the received data line by line
+        // Process the received data
         std::string data(buf);
         processCommand(socket_fd, data);
     }
@@ -87,6 +95,9 @@ void MSTServer::handleClient(ClientData *client_data) {
     // Clean up and exit thread
     close(socket_fd);
     printf("Socket %d disconnected\n", socket_fd);
+
+    // Clean up client's proxy in the pipeline
+    mstPipeline->removeProxy(socket_fd);
 }
 
 void MSTServer::setupSocket() {
@@ -140,317 +151,133 @@ void MSTServer::setupSocket() {
 }
 
 void MSTServer::processCommand(int socket_fd, std::string &command) {
-    // Client state variables - using class member variables
+    // Define a callback function to send responses to the client
+    auto sendCallback = [socket_fd](std::string response) {
+        send(socket_fd, response.c_str(), response.length(), 0);
+    };
 
-    // Initialize state for new clients
-    if (clientCommandState.find(socket_fd) == clientCommandState.end()) {
-        clientCommandState[socket_fd] = 0; // 0 = normal, 1 = expecting edges
-        clientPointsNeeded[socket_fd] = 0;
-        clientPendingLines[socket_fd] = std::vector<std::string>();
-    }
-
-    // Get the client's state
-    int &commandState = clientCommandState[socket_fd];
-    int &pointsNeeded = clientPointsNeeded[socket_fd];
-    std::vector<std::string> &pendingLines = clientPendingLines[socket_fd];
-
+    // Process commands line by line
     std::istringstream stream(command);
     std::string line;
 
     while (std::getline(stream, line)) {
-        // Remove carriage return if present (handles Windows line endings)
+        // Remove carriage return if present
         if (!line.empty() && line.back() == '\r') {
             line.pop_back();
         }
 
-        if (commandState == 0) {
-            // Normal command processing mode
-            if (line.substr(0, 8) == "Newgraph") {
-                // Extract the number of edges
-                std::istringstream iss(line);
-                std::string cmd;
-                int n;
-                iss >> cmd >> n;
+        // Skip empty lines
+        if (line.empty()) {
+            continue;
+        }
 
-                // Check if there's already a graph in the server
-                bool graphExists = false; {
-                    std::lock_guard<std::mutex> lock(calculator_mutex);
-                    graphExists = !shared_graph.isEmpty();
+        // Convert to lowercase for case-insensitive matching
+        std::string lowerLine = line;
+        std::transform(lowerLine.begin(), lowerLine.end(), lowerLine.begin(), ::tolower);
+
+        // Map client commands to our internal command format
+        std::string processedLine;
+
+        if (line.substr(0, 8) == "Newgraph" || line.substr(0, 8) == "newgraph") {
+            // Extract the number of vertices
+            std::istringstream iss(line);
+            std::string cmd;
+            int n;
+            iss >> cmd;  // Extract "Newgraph"
+
+            if (iss >> n && n >= 0) {
+                // Use exact constant from commands.hpp
+                processedLine = "new_graph " + std::to_string(n);
+
+                // If there's also an edge count, include it
+                int m;
+                if (iss >> m && m >= 0) {
+                    processedLine += " " + std::to_string(m);
                 }
-
-                if (graphExists) {
-                    // Graph already exists, inform the client
-                    std::string response = "A graph already exists in the server. Use PrintGraph to view it.\n";
-                    send(socket_fd, response.c_str(), response.length(), 0);
-                } else if (n > 0) {
-                    commandState = 1; // Switch to edge collection mode
-                    pointsNeeded = n; // Set the number of edges to collect
-                    pendingLines.clear(); // Clear any existing edges
-
-                    // Send acknowledgment
-                    std::string response = "Please enter " + std::to_string(n) +
-                                           " edges in format 'source target weight', one per line:\n";
-                    send(socket_fd, response.c_str(), response.length(), 0);
-                } else {
-                    std::string response = "Invalid number of edges.\n";
-                    send(socket_fd, response.c_str(), response.length(), 0);
-                }
-            } else if (line == "help") {
-                // Handle help command
-                std::string helpText = "Available commands:\n"
-                        "  Newgraph n - Create a new graph with n edges\n"
-                        "  PrintGraph - Display the current graph structure\n"
-                        "  MST algo - Calculate MST using specified algorithm (Kruskal/Prim)\n"
-                        "  ResetGraph - Reset the current graph\n"
-                        "  help - Display this help text\n"
-                        "  exit - Close connection\n";
-                send(socket_fd, helpText.c_str(), helpText.length(), 0);
-            } else if (line == "PrintGraph") {
-                // Print the current graph
-                bool graphExists = false; {
-                    std::lock_guard<std::mutex> lock(calculator_mutex);
-                    graphExists = !shared_graph.isEmpty();
-                }
-
-                if (!graphExists) {
-                    std::string response = "No graph available. Please create a graph first using 'Newgraph'.\n";
-                    send(socket_fd, response.c_str(), response.length(), 0);
-                } else {
-                    std::string graphInfo = printGraph();
-                    send(socket_fd, graphInfo.c_str(), graphInfo.length(), 0);
-                }
-            } else if (line.substr(0, 3) == "MST") {
-                // Extract the algorithm name
-                std::istringstream iss(line);
-                std::string cmd, algo;
-                iss >> cmd >> algo;
-
-                bool graphExists = false; {
-                    std::lock_guard<std::mutex> lock(calculator_mutex);
-                    graphExists = !shared_graph.isEmpty();
-                }
-
-                if (!graphExists) {
-                    std::string response = "No graph available. Please create a graph first using 'Newgraph'.\n";
-                    send(socket_fd, response.c_str(), response.length(), 0);
-                } else if (algo == "Kruskal" || algo == "Prim") {
-                    // Calculate MST using the specified algorithm
-                    std::string result = calculateMST(algo);
-                    send(socket_fd, result.c_str(), result.length(), 0);
-                } else {
-                    std::string response = "Invalid algorithm. Please use 'Kruskal' or 'Prim'.\n";
-                    send(socket_fd, response.c_str(), response.length(), 0);
-                }
-            } else if (line == "exit") {
-                // Handle exit command
-                std::string response = "Goodbye!\n";
-                send(socket_fd, response.c_str(), response.length(), 0);
-
-                // Clean up resources for this client
-                cleanupClient(socket_fd);
-                return;
-            } else if (line == "ResetGraph") {
-                // Reset the shared graph
-                resetGraph();
-                std::string response = "Graph has been reset. You can create a new one with 'Newgraph'.\n";
-                send(socket_fd, response.c_str(), response.length(), 0);
             } else {
-                // Process other commands (to be implemented later)
-                std::string response = "Unknown command: " + line + "\n";
-                send(socket_fd, response.c_str(), response.length(), 0);
-            }
-        } else if (commandState == 1) {
-            // Collecting edges for Newgraph command
-            pendingLines.push_back(line);
-
-            if (pendingLines.size() >= pointsNeeded) {
-                // We have all edges, process the Newgraph command
-                {
-                    // Process edges and create the graph
-                    // Note: processGraphEdges acquires graph_mutex internally
-                    bool success = processGraphEdges(socket_fd, pendingLines);
-
-                    if (success) {
-                        // Send confirmation
-                        std::string response = "Graph created with " +
-                                               std::to_string(pointsNeeded) +
-                                               " edges.\n";
-                        send(socket_fd, response.c_str(), response.length(), 0);
-                    } else {
-                        std::string response = "Error creating graph. Please check edge format.\n";
-                        send(socket_fd, response.c_str(), response.length(), 0);
-                    }
-                }
-
-                // Reset client state
-                commandState = 0;
-                pointsNeeded = 0;
-                pendingLines.clear();
-            } else {
-                // Acknowledge edge receipt
-                int remaining = pointsNeeded - pendingLines.size();
-                std::string response = "Edge received. " +
-                                       std::to_string(remaining) +
-                                       " more edge(s) needed.\n";
-                send(socket_fd, response.c_str(), response.length(), 0);
+                sendCallback("Invalid number of vertices. Usage: Newgraph <vertices> [<edges>]\n");
+                continue;
             }
         }
-    }
-}
+        else if (line == "PrintGraph" || line == "printgraph") {
+            processedLine = "print_graph";
+        }
+        else if (lowerLine.substr(0, 3) == "mst") {
+            std::string algo;
+            std::istringstream iss(line);
+            std::string cmd;
+            iss >> cmd >> algo;
 
-bool MSTServer::processGraphEdges(int socket_fd, const std::vector<std::string> &edges) {
-    // Find the maximum vertex id to determine graph size
-    int maxVertex = -1;
-    std::vector<std::tuple<int, int, int> > parsedEdges;
+            // Convert algorithm name to lowercase for case-insensitive comparison
+            std::transform(algo.begin(), algo.end(), algo.begin(), ::tolower);
 
-    for (const auto &edgeLine: edges) {
-        std::istringstream iss(edgeLine);
-        int source, target, weight;
+            if (algo == "kruskal") {
+                processedLine = "mst_kruskal";
+            }
+            else if (algo == "prim") {
+                processedLine = "mst_prim";
+            }
+            else {
+                sendCallback("Invalid algorithm. Please use 'Kruskal' or 'Prim'.\n");
+                continue;
+            }
+        }
+        else if (lowerLine == "exit") {
+            sendCallback("Goodbye!\n");
+            close(socket_fd);
+            return;
+        }
+        else if (lowerLine == "resetgraph") {
+            // Reset by creating a new empty graph
+            processedLine = "new_graph 0";
+        }
+        else if (lowerLine == "help") {
+            std::string helpText = "Available commands:\n"
+                    "  Newgraph <vertices> [<edges>] - Create a new graph with vertices and optional edges count\n"
+                    "  AddEdge <source> <target> <weight> - Add an edge to the graph\n"
+                    "  PrintGraph - Display the current graph structure\n"
+                    "  MST Kruskal - Calculate MST using Kruskal's algorithm\n"
+                    "  MST Prim - Calculate MST using Prim's algorithm\n"
+                    "  ResetGraph - Reset the current graph\n"
+                    "  help - Display this help text\n"
+                    "  exit - Close connection\n";
+            sendCallback(helpText);
+            continue;
+        }
+        else if (lowerLine.substr(0, 7) == "addedge") {
+            // Parse "AddEdge <source> <target> <weight>"
+            std::istringstream iss(line);
+            std::string cmd;
+            int source, target, weight;
+            iss >> cmd; // Extract "AddEdge"
 
-        if (!(iss >> source >> target >> weight)) {
-            return false; // Parsing failed
+            if (iss >> source >> target >> weight) {
+                processedLine = "add_edge " + std::to_string(source) + " " +
+                               std::to_string(target) + " " + std::to_string(weight);
+            }
+            else {
+                sendCallback("Invalid edge format. Usage: AddEdge <source> <target> <weight>\n");
+                continue;
+            }
+        }
+        else {
+            // Check if this is just a raw edge definition (when collecting edges)
+            std::istringstream iss(line);
+            int source, target, weight;
+            if (iss >> source >> target >> weight) {
+                // This is likely an edge being added
+                processedLine = "add_edge " + std::to_string(source) + " " +
+                               std::to_string(target) + " " + std::to_string(weight);
+            }
+            else {
+                sendCallback("Invalid command: " + line + "\n");
+                continue;
+            }
         }
 
-        // Check for valid vertex ids (must be non-negative)
-        if (source < 0 || target < 0) {
-            return false;
-        }
+        std::cout << "Processing command: " << processedLine << std::endl;  // Debug output
 
-        maxVertex = std::max(maxVertex, std::max(source, target));
-        parsedEdges.emplace_back(source, target, weight);
+        // Process the command through the pipeline
+        mstPipeline->processCommand(processedLine, socket_fd, sendCallback);
     }
-
-    // Create a new graph with proper size
-    int numVertices = maxVertex + 1; // +1 because vertices are 0-indexed
-    Graph newGraph(numVertices, parsedEdges.size());
-
-    // Add all edges to the graph
-    for (const auto &edge: parsedEdges) {
-        int source = std::get<0>(edge);
-        int target = std::get<1>(edge);
-        int weight = std::get<2>(edge);
-
-        newGraph.addEdge(source, target, weight);
-    }
-
-    // Store the graph as the shared graph
-    std::lock_guard<std::mutex> lock(calculator_mutex);
-    shared_graph = newGraph;
-    return true;
-}
-
-std::string MSTServer::calculateMST(const std::string &algorithm) {
-    std::stringstream result;
-
-    std::lock_guard<std::mutex> lock(calculator_mutex);
-
-    if (shared_graph.isEmpty()) {
-        return "Error: Graph is empty. Please create a graph first.\n";
-    }
-
-    result << "Calculating MST using " << algorithm << " algorithm\n";
-    result << "Graph has " << shared_graph.getVertices() << " vertices.\n";
-
-    MST *mst_res = nullptr;
-    AbstractProductAlgo *algo = nullptr;
-
-    try {
-        if (algorithm == "Prim") {
-            std::cout << "Creating Prim algorithm object" << std::endl;
-            algo = algo_factory.createProduct(PRIM); // Prim algorithm
-        } else if (algorithm == "Kruskal") {
-            std::cout << "Creating Kruskal algorithm object" << std::endl;
-            algo = algo_factory.createProduct(KRUSKAL); // Kruskal algorithm
-        }
-
-        if (!algo) {
-            return "Error: Failed to create algorithm object.\n";
-        }
-
-        // Execute the algorithm on our graph
-        std::cout << "Executing algorithm" << std::endl;
-        mst_res = algo->execute(shared_graph);
-        std::cout << "Algorithm execution complete" << std::endl;
-
-        if (!mst_res) {
-            std::cout << "Algorithm execution failed" << std::endl;
-            delete algo; // Clean up algorithm before returning
-            return "Error: Algorithm execution failed.\n";
-        }
-
-        // Get the MST information
-        std::cout << "Getting MST results" << std::endl;
-        result << "MST Edges (source -> target : weight):\n";
-        auto edges = mst_res->getEdges();
-        for (const auto &edge: edges) {
-            int source = std::get<0>(edge);
-            int target = std::get<1>(edge);
-            int weight = std::get<2>(edge);
-
-            result << "  " << source << " -> " << target << " : " << weight << "\n";
-        }
-        // Clean up - delete in reverse order of creation
-        std::cout << "Cleaning up resources" << std::endl;
-        delete mst_res;
-        delete algo; // Move this after all usage of mst_res is done
-
-        std::cout << "Cleanup complete" << std::endl;
-    } catch (const std::exception &e) {
-        // Clean up in case of exception
-        std::cout << "Exception caught: " << e.what() << std::endl;
-        delete mst_res;
-        delete algo;
-        return "Error calculating MST: " + std::string(e.what()) + "\n";
-    } catch (...) {
-        // Clean up in case of unknown exception
-        std::cout << "Unknown exception caught" << std::endl;
-        delete mst_res;
-        delete algo;
-        return "Unknown error calculating MST.\n";
-    }
-
-    return result.str();
-}
-std::string MSTServer::printGraph() {
-    std::stringstream result;
-
-    std::lock_guard<std::mutex> lock(calculator_mutex);
-
-    int vertices = shared_graph.getVertices();
-    auto graphPair = shared_graph.getAsPair();
-    auto edges = graphPair.first;
-
-    result << "Graph Information:\n";
-    result << "Number of vertices: " << vertices << "\n";
-    result << "Number of edges: " << edges.size() << "\n\n";
-
-    result << "Edges (source -> target : weight):\n";
-    for (const auto &edge: edges) {
-        int source = std::get<0>(edge);
-        int target = std::get<1>(edge);
-        int weight = std::get<2>(edge);
-
-        result << "  " << source << " -> " << target << " : " << weight << "\n";
-    }
-
-    result << "\n";
-    return result.str();
-}
-
-void MSTServer::cleanupClient(int socket_fd) {
-    // Clean up all data structures related to this client
-    std::lock_guard<std::mutex> lock(calculator_mutex);
-
-    // Note: We don't erase the shared graph here as it's meant to be preserved
-    clientCommandState.erase(socket_fd);
-    clientPointsNeeded.erase(socket_fd);
-    clientPendingLines.erase(socket_fd);
-
-    // Close the socket if not already closed
-    close(socket_fd);
-}
-
-void MSTServer::resetGraph() {
-    std::lock_guard<std::mutex> lock(calculator_mutex);
-    shared_graph = Graph();
 }

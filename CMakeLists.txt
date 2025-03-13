@@ -1,5 +1,12 @@
-# First create a library target for your core code
-add_library(dsa_lib
+cmake_minimum_required(VERSION 3.29)
+project(os_assignments_master)
+
+set(CMAKE_CXX_STANDARD 14)
+
+# Create a test executable for Graph tests
+add_executable(graph_tests
+        tests/dsa/Graph_test.cpp
+        tests/dsa/Factory_Algo_test.cpp
         src/dsa/Graph.cpp
         src/dsa/MST.cpp
         include/dsa/ConcreteAlgoPrim.hpp
@@ -10,12 +17,11 @@ add_library(dsa_lib
         include/dsa/UnionFind.hpp
         include/server/server.hpp
         src/server/server.cpp
-        src/dsa/ConcreteAlgoFactory.cpp
         src/dsa/ConcreteAlgoKruskal.cpp
         src/dsa/ConcreteAlgoPrim.cpp
         include/server/MSTServer.hpp
         src/server/MSTServer.cpp
-        include/active_object/Proxy.hpp
+        include/active_object/MSTProxy.hpp
         include/active_object/MethodRequest.hpp
         include/active_object/ActivationQ.hpp
         include/active_object/Scheduler.hpp
@@ -24,55 +30,7 @@ add_library(dsa_lib
         include/factory/ConcreteAlgoFactory.hpp
         include/factory/AbstractProductAlgo.hpp
         src/active_object/MSTServant.cpp
-        src/active_object/MSTServant.cpp
         src/factory/AbstractProduct.cpp
-)
-
-# Set include directories for the library
-target_include_directories(dsa_lib
-        PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
-
-# Add header files for IDE organization (doesn't affect compilation)
-target_sources(dsa_lib
-        PRIVATE
-        include/dsa/Graph.hpp
-        include/dsa/MST.hpp
-        include/factory/AbstractProduct.hpp
-        include/factory/AbstractFactory.hpp
-)
-
-# Create a test executable for Graph tests
-add_executable(graph_tests
-        tests/dsa/Graph_test.cpp
-        tests/dsa/Factory_Algo_test.cpp
-)
-
-# Link the test executable with your library and test framework
-target_link_libraries(graph_tests
-        PRIVATE
-        dsa_lib
-)
-
-# Create a test executable for MST tests
-add_executable(mst_tests
-        tests/dsa/MST_test.cpp
-)
-
-# Link the test executable with your library and test framework
-target_link_libraries(mst_tests
-        PRIVATE
-        dsa_lib
-)
-
-# Register the tests with CTest
-include(CTest)
-add_test(NAME GraphTests COMMAND graph_tests)
-add_test(NAME MSTTests COMMAND mst_tests)
-
-# Optionally add a "run all tests" convenience target
-add_custom_target(run_tests
-        COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
-        DEPENDS graph_tests mst_tests
+        include/active_object/MSTPipeline.hpp
+        include/commands.hpp
 )

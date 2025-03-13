@@ -16,16 +16,19 @@
 #include <netdb.h>
 #include <vector>
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <string>
 #include <sstream>
 #include <map>
 #include <mutex>
 #include <thread>
+#include <memory>
 #include "../dsa/Graph.hpp"
 #include "../dsa/MST.hpp"
 #include "../factory/ConcreteAlgoFactory.hpp"
-
+#include "../active_object/MSTPipeline.hpp"
+#include "../commands.hpp"
 // Function to get sockaddr, IPv4 or IPv6:
 void *get_in_addr(struct sockaddr *sa);
 
@@ -39,36 +42,16 @@ class MSTServer {
 private:
     int listener;
     bool running;
-    Graph shared_graph;
-    std::mutex calculator_mutex;
     std::vector<std::thread> client_threads;
-    ConcreteAlgoFactory algo_factory;
-    std::map<int, int> clientCommandState; // Maps socket_fd to command state
-    std::map<int, int> clientPointsNeeded; // Maps socket_fd to points needed
-    std::map<int, std::vector<std::string> > clientPendingLines; // Maps socket_fd to pending lines
+    std::unique_ptr<MSTPipeline> mstPipeline;
 
     void stop();
-
     void handleClient(ClientData *client_data);
-
     void setupSocket();
-
     void processCommand(int socket_fd, std::string &command);
 
-    bool processGraphEdges(int socket_fd, const std::vector<std::string> &edges);
-
-    std::string calculateMST(const std::string &algorithm);
-
-    std::string printGraph();
-
-    void cleanupClient(int socket_fd);
-
-    void resetGraph();
-
 public:
-    MSTServer(): listener(-1), running(false),shared_graph(0,0){
-    }
-
+    MSTServer(): listener(-1), running(false) {}
     void start();
 };
 #endif //MSTSERVER_HPP

@@ -178,6 +178,21 @@ std::string MST::getLongestDistanceAsString() const {
     return oss.str();
 }
 
+std::string MST::toString() const {
+    std::ostringstream oss;
+
+    // Print vertices and edges
+    oss << "Vertices: " << numVertices << "\n";
+    oss << "Edges:\n";
+    for (const auto& edge : edges) {
+        int u, v, weight;
+        std::tie(u, v, weight) = edge;
+        oss << u << " -- " << v << " (weight: " << weight << ")\n";
+    }
+
+    return oss.str();
+}
+
 void MST::dfs(int node, int distance, std::vector<bool> &visited, int &maxDist, int &farthestNode) const {
     visited[node] = true;
 
