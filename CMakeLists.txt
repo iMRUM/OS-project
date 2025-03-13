@@ -40,4 +40,10 @@ add_executable(graph_tests
         include/server/MSTPipelineServer.hpp
         include/server/MSTPipelineServer.hpp
         src/server/MSTPipelineServer.cpp
+        include/leader_followers/ConcreteEventHandler.hpp
+        include/leader_followers/EventHandler.hpp
+        include/leader_followers/ThreadPool.hpp
+        include/leader_followers/Handle.hpp
+        include/leader_followers/HandleSet.hpp
+        include/leader_followers/ThreadSynchronizer.hpp
 )
