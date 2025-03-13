@@ -24,7 +24,7 @@
 #include <thread>
 #include "../dsa/Graph.hpp"
 #include "../dsa/MST.hpp"
-#include "../dsa/ConcreteAlgoFactory.hpp"
+#include "../factory/ConcreteAlgoFactory.hpp"
 
 // Function to get sockaddr, IPv4 or IPv6:
 void *get_in_addr(struct sockaddr *sa);

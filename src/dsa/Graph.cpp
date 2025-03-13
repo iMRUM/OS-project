@@ -1,8 +1,11 @@
 #include "../../include/dsa/Graph.hpp"
 
+Graph::Graph(int v) : vertices(v), edges(0) {
+    graph.resize(v);
+}
 
 // Constructor with vertices and edges
-Graph::Graph(int v, int e) : vertices(v), edges(0) {
+Graph::Graph(int v, int e) : vertices(v), edges(e) {
     // Initialize the adjacency list with v empty vectors
     graph.resize(v);
 }

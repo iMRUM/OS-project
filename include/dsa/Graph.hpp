@@ -11,6 +11,7 @@ class Graph {
     int vertices, edges;
 
 public:
+    Graph(int v);
     Graph(int v, int e);
 
     explicit Graph(adjList &graph);
