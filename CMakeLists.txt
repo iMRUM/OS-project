@@ -33,4 +33,10 @@ add_executable(graph_tests
         src/factory/AbstractProduct.cpp
         include/active_object/MSTPipeline.hpp
         include/commands.hpp
+        src/active_object/ActivationQ.cpp
+        src/active_object/Future.cpp
+        src/active_object/MethodRequest.cpp
+        src/active_object/MSTPipeline.cpp
+        src/active_object/MSTProxy.cpp
+        src/active_object/Scheduler.cpp
 )
