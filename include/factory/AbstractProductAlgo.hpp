@@ -1,12 +1,11 @@
-//
-// Created by imry on 3/11/25.
-//
-
 #ifndef MSTALGO_HPP
 #define MSTALGO_HPP
-#include "../Factory/AbstractProduct.hpp"
+#include "../factory/AbstractProduct.hpp"
 #include <tuple>
-#include "MST.hpp"
+#include <set>
+#include <vector>
+#include <algorithm>
+#include "../dsa/MST.hpp"
 using namespace std;
 
 class AbstractProductAlgo : public AbstractProduct {

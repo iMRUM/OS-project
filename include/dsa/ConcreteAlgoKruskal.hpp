@@ -1,10 +1,6 @@
-//
-// Created by imry on 3/11/25.
-//
-
 #ifndef CONCRETEALGOKRUSKAL_HPP
 #define CONCRETEALGOKRUSKAL_HPP
-#include "AbstractProductAlgo.hpp"
+#include "../factory/AbstractProductAlgo.hpp"
 #include "UnionFind.hpp"
 class ConcreteAlgoKruskal : public AbstractProductAlgo {
 private:

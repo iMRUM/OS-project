@@ -2,10 +2,8 @@
 add_library(dsa_lib
         src/dsa/Graph.cpp
         src/dsa/MST.cpp
-        include/dsa/AbstractProductAlgo.hpp
         include/dsa/ConcreteAlgoPrim.hpp
         include/dsa/ConcreteAlgoKruskal.hpp
-        include/dsa/ConcreteAlgoFactory.hpp
         include/dsa/UnionFind.hpp
         src/dsa/UnionFind.cpp
         src/dsa/UnionFind.cpp
@@ -17,12 +15,16 @@ add_library(dsa_lib
         src/dsa/ConcreteAlgoPrim.cpp
         include/server/MSTServer.hpp
         src/server/MSTServer.cpp
-        include/ActObj/Proxy.hpp
-        include/ActObj/MethodRequest.hpp
-        include/ActObj/ActivationQ.hpp
-        include/ActObj/Scheduler.hpp
-        include/ActObj/Servant.hpp
-        include/ActObj/Future.hpp
+        include/active_object/Proxy.hpp
+        include/active_object/MethodRequest.hpp
+        include/active_object/ActivationQ.hpp
+        include/active_object/Scheduler.hpp
+        include/active_object/MSTServant.hpp
+        include/active_object/Future.hpp
+        include/factory/ConcreteAlgoFactory.hpp
+        include/factory/AbstractProductAlgo.hpp
+        src/active_object/MSTServant.cpp
+        src/active_object/MSTServant.cpp
 )
 
 # Set include directories for the library
@@ -36,8 +38,8 @@ target_sources(dsa_lib
         PRIVATE
         include/dsa/Graph.hpp
         include/dsa/MST.hpp
-        include/Factory/AbstractProduct.hpp
-        include/Factory/AbstractFactory.hpp
+        include/factory/AbstractProduct.hpp
+        include/factory/AbstractFactory.hpp
 )
 
 # Create a test executable for Graph tests

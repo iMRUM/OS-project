@@ -1,7 +1,3 @@
-//
-// Created by imry on 3/11/25.
-//
-
 #ifndef ABSTRACTALGO_HPP
 #define ABSTRACTALGO_HPP
 class AbstractProduct {

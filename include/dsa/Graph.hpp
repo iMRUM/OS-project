@@ -2,7 +2,8 @@
 #define GRAPH_HPP
 #include <algorithm>
 #include <vector>
-
+#include <tuple>
+#include <set>
 using adjList = std::vector<std::vector<std::pair<int, int>>>;
 
 class Graph {
@@ -10,6 +11,7 @@ class Graph {
     int vertices, edges;
 
 public:
+    Graph(int v);
     Graph(int v, int e);
 
     explicit Graph(adjList &graph);
