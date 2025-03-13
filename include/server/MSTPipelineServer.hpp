@@ -9,7 +9,7 @@ private:
     std::vector<std::thread> client_threads;
     std::unique_ptr<MSTPipeline> mstPipeline;
 
-    void stop() override;
+
 
     void handleClient(ClientData *client_data) override;
 
@@ -20,7 +20,7 @@ private:
 public:
     MSTPipelineServer(): MSTServer() {
     }
-
+    void stop() override;
     void start() override;
 };
 #endif //MSTPIPELINESERVER_HPP

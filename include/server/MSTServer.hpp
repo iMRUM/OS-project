@@ -42,11 +42,11 @@ protected:
     int listener;
     bool running;
 
-    virtual void stop() = 0;
+
 
     virtual void handleClient(ClientData *client_data) = 0;
 
-    virtual void setupSocket() = 0;
+    virtual void setupSocket();
 
     virtual void processCommand(int socket_fd, std::string &command) = 0;
 
@@ -55,7 +55,7 @@ public:
     }
 
     virtual void start() = 0;
-
+    virtual void stop() = 0;
     virtual ~MSTServer() = default;
 };
 #endif //MSTSERVER_HPP
