@@ -1,23 +1,35 @@
 #include "../../include/active_object/MSTServant.hpp"
+#include <queue>
+#include <iostream>
 
 void MSTServant::initGraph_i(int n) {
     graph = Graph(n);
+    // Reset MST when graph is reinitialized
+    mst = MST();
 }
 
 void MSTServant::addEdge_i(int u, int v, int w) {
-    graph.addEdge(u-1, v-1, w);
-    graph.addEdge(v-1, u-1, w);  // Undirected graph
+    graph.addEdge(u, v, w);
 }
 
 void MSTServant::removeEdge_i(int u, int v) {
-    graph.removeEdge(u-1, v-1);
-    graph.removeEdge(v-1, u-1);  // Undirected graph
+    graph.removeEdge(u, v);
 }
 
-MST MSTServant::getMST_i(const std::string &algo) {
-    AbstractProductAlgo* mst_algo = algo_factory.createProduct(algo);
-    mst = *(mst_algo->execute(graph));
-    delete mst_algo;
+MST MSTServant::getMST_i(const std::string& algo) {
+    // Get correct algorithm implementation from factory
+    AbstractProductAlgo* algorithm = algo_factory.createProduct(algo);
+
+    if (algorithm) {
+        // Execute MST algorithm
+        MST* mst_ptr = algorithm->execute(graph);
+        if (mst_ptr) {
+            mst = *mst_ptr;
+            delete mst_ptr;
+        }
+        delete algorithm;
+    }
+
     return mst;
 }
 
@@ -29,7 +41,7 @@ int MSTServant::getLongestDist_i() {
     return mst.findLongestDistance();
 }
 
-int MSTServant::getShortestDist_i(const adjList &original_graph, int src, int dest) {
+int MSTServant::getShortestDist_i(const adj_list &original_graph, int src, int dest) {
     return mst.findShortestPathWithMstEdge(original_graph, src, dest);
 }
 
@@ -38,23 +50,20 @@ double MSTServant::getAvgDist_i() {
 }
 
 std::string MSTServant::toString_i() {
-    if (!isGraphInitialized_i()) {
-        return "Graph not initialized\n";
-    }
-
     std::stringstream ss;
-    ss << "Vertices: " << graph.getVertices() << "\n";
-    ss << "Edges:\n";
 
-    const adjList& adj = graph.getGraph();
-    for (int u = 0; u < graph.getVertices(); ++u) {
-        for (const auto& edge : adj[u]) {
-            int v = edge.first;
-            int w = edge.second;
-            // Only print each edge once (for undirected graphs)
-            if (u < v) {
-                ss << u << " -- " << v << " (weight: " << w << ")\n";
-            }
+    // Print graph information
+    ss << "Vertices: " << graph.getVertices() << std::endl;
+    ss << "Edges:" << std::endl;
+
+    const adj_list& adj_list = graph.getGraph();
+
+    // Since the graph is directed, print all edges
+    for (int i = 0; i < graph.getVertices(); i++) {
+        for (const auto& edge : adj_list[i]) {
+            int neighbor = edge.first;
+            int weight = edge.second;
+            ss << i << " -> " << neighbor << " (weight: " << weight << ")" << std::endl;
         }
     }
 

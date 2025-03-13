@@ -11,9 +11,9 @@ Graph::Graph(int v, int e) : vertices(v), edges(e) {
 }
 
 // Constructor with existing adjacency list
-Graph::Graph(adjList &inputGraph) {
-    graph = inputGraph;
-    vertices = inputGraph.size();
+Graph::Graph(adj_list &input_graph) {
+    graph = input_graph;
+    vertices = input_graph.size();
     
     // Count the total number of edges
     edges = 0;
@@ -40,31 +40,24 @@ void Graph::addEdge(int s, int t, int w) {
         }
     } else {
         // Add new edge
-        graph[s].push_back({t, w});
+        graph[s].emplace_back(t, w);
         edges++;
     }
 }
 
 // Remove an edge from s to t
 void Graph::removeEdge(int s, int t) {
-    // Check if vertices are valid
-    if (s >= vertices || t >= vertices || s < 0 || t < 0) {
-        return; // Invalid vertices
+    if (s < 0 || s >= vertices || t < 0 || t >= vertices) {
+        return;
     }
-    
-    // Check if edge exists
-    if (edgeExists(s, t)) {
-        // Find and remove the edge
-        auto &neighbors = graph[s];
-        neighbors.erase(
-            std::remove_if(
-                neighbors.begin(), 
-                neighbors.end(),
-                [t](const std::pair<int, int> &edge) { return edge.first == t; }
-            ),
-            neighbors.end()
-        );
-        edges--;
+
+    auto& vertex_edges = graph[s];
+    for (auto it = vertex_edges.begin(); it != vertex_edges.end(); ++it) {
+        if (it->first == t) {
+            vertex_edges.erase(it);
+            edges--;
+            return;
+        }
     }
 }
 
@@ -85,42 +78,17 @@ bool Graph::edgeExists(int u, int v) const {
 }
 
 std::pair<std::vector<std::tuple<int, int, int, int>>, int> Graph::getAsPair() {
-    std::vector<std::tuple<int, int, int, int>> edgesList;
-    int n = getVertices();
+    std::vector<std::tuple<int, int, int, int>> result;
+    int edge_id = 0;
 
-    if (n == 0) {
-        // Return empty edges list and 0 vertices if graph is empty
-        return {edgesList, 0};
-    }
-
-    // Extract edges from the Graph's adjacency list
-    // To avoid duplicate edges in undirected graphs, we'll only add each edge once
-    // by ensuring source < target
-    std::set<std::pair<int, int>> addedEdges; // To track edges we've already added
-
-    int edgeId = 0;
-    for (int source = 0; source < n; ++source) {
-        for (const auto& edge : graph[source]) {
-            int target = edge.first;
+    for (int u = 0; u < vertices; u++) {
+        for (const auto& edge : graph[u]) {
+            int v = edge.first;
             int weight = edge.second;
-
-            // Create a canonical representation of the edge (smaller vertex first)
-            std::pair<int, int> canonicalEdge;
-            if (source < target) {
-                canonicalEdge = {source, target};
-            } else {
-                canonicalEdge = {target, source};
-            }
-
-            // Only add this edge if we haven't added it yet
-            if (addedEdges.find(canonicalEdge) == addedEdges.end()) {
-                edgesList.emplace_back(source, target, weight, edgeId++);
-                addedEdges.insert(canonicalEdge);
-            }
+            result.push_back(std::make_tuple(u, v, weight, edge_id++));
         }
     }
 
-    return {edgesList, n};
+    return std::make_pair(result, vertices);
 }
-
 // Remove an edge from the adjacency list directly within removeEdge method

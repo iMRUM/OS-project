@@ -69,7 +69,7 @@ public:
     }
 
     // Two-way method that returns the shortest distance in MST
-    Future<int> getShortestDist(const adjList &originalGraph, int src, int dest) {
+    Future<int> getShortestDist(const adj_list &originalGraph, int src, int dest) {
         Future<int> result;
         MethodRequest* request = new GetShortestDistRequest(servant, &result, originalGraph, src, dest);
         scheduler->enqueue(request);

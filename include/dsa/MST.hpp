@@ -19,7 +19,7 @@ private:
     std::set<edge> edges;
     int totalWeight;
     int numVertices;
-    adjList mstAdjList;
+    adj_list mstAdjList;
 
 public:
     MST(){}
@@ -33,13 +33,13 @@ public:
     
     int getNumVertices() const;
     
-    const adjList& getMstAdjList() const;
+    const adj_list& getMstAdjList() const;
     
     int findLongestDistance() const;
     
     double findAverageDistance() const;
     
-    int findShortestPathWithMstEdge(const adjList& originalGraph, int src, int dest) const;
+    int findShortestPathWithMstEdge(const adj_list& originalGraph, int src, int dest) const;
     
     std::string getTotalWeightAsString() const;
     

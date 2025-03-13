@@ -18,7 +18,7 @@ public:
     MST getMST_i(const std::string& algo);
     int getWeight_i();
     int getLongestDist_i();
-    int getShortestDist_i(const adjList &original_graph, int src, int dest);
+    int getShortestDist_i(const adj_list &original_graph, int src, int dest);
 
     double getAvgDist_i();
     std::string toString_i();

@@ -1,68 +1,60 @@
 #include "../../include/dsa/ConcreteAlgoKruskal.hpp"
-
+#include <algorithm>
 #include <iostream>
 
-vector<tuple<int, int, int, int> > ConcreteAlgoKruskal::kruskal(const vector<tuple<int, int, int, int> > &graph_edges,
-                                                                int n) {
-    // Guard against empty input
-    std::cout << "kruskal" << std::endl;
-    if (graph_edges.empty() || n <= 0) {
-        return {};
-    }
+vector<tuple<int, int, int, int>> ConcreteAlgoKruskal::kruskal(
+    const vector<tuple<int, int, int, int>> &graph_edges, int n) {
 
-    UnionFind graph(n);
-    vector<tuple<int, int, int, int> > edges;
-    vector<tuple<int, int, int, int> > spanning_tree;
+    // Debug: Print input edges
+    std::cout << "Kruskal input: " << graph_edges.size() << " edges, " << n << " vertices" << std::endl;
 
-    // Create a copy of the edges
-    edges = graph_edges;
+    // Initialize result vector for MST edges
+    vector<tuple<int, int, int, int>> result;
+
+    // Create a UnionFind structure for n vertices
+    UnionFind uf(n);
 
     // Sort edges by weight
+    vector<tuple<int, int, int, int>> edges = graph_edges;
     sort(edges.begin(), edges.end(),
-         [&](const tuple<int, int, int, int> &a,
-             const tuple<int, int, int, int> &b) {
+         [](const tuple<int, int, int, int> &a, const tuple<int, int, int, int> &b) {
              return get<2>(a) < get<2>(b);
          });
 
-    // Process each edge
-    for (const auto &edge: edges) {
-        int from, to, cost, id;
-        tie(from, to, cost, id) = edge;
+    // Process edges in order of increasing weight
+    for (const auto &edge : edges) {
+        int u = get<0>(edge);
+        int v = get<1>(edge);
+        int w = get<2>(edge);
+        int id = get<3>(edge);
 
-        // Safety check for vertex indices
-        if (from < 0 || from >= n || to < 0 || to >= n) {
-            continue; // Skip invalid edges
-        }
+        // If including this edge doesn't create a cycle, add it to the MST
+        if (uf.find_parent(u) != uf.find_parent(v)) {
+            uf.unite(u, v);
+            result.push_back(edge);
 
-        // Try to unite vertices
-        if (graph.unite(from, to)) {
-            spanning_tree.emplace_back(from, to, cost, id);
+            // Debug: Print added edge
+            std::cout << "Kruskal: Adding edge " << u << " -> " << v << " (weight: " << w << ")" << std::endl;
         }
     }
 
-    return spanning_tree;
+    // Debug: Print result size
+    std::cout << "Kruskal result: " << result.size() << " edges in MST" << std::endl;
+
+    return result;
 }
 
-MST *ConcreteAlgoKruskal::execute(Graph &graph) {
-    std::cout << "execute" << std::endl;
-    // Check for empty graph
-    if (graph.isEmpty()) {
-        return new MST(0);
-    }
+MST* ConcreteAlgoKruskal::execute(Graph &graph) {
+    // Get edge list and vertex count from graph
+    auto [edges, n] = graph.getAsPair();
 
-    // Get graph data
-    auto graphData = graph.getAsPair();
-    auto edges = graphData.first;
-    int num_vertices = graphData.second;
+    // Debug: Print graph information
+    std::cout << "Executing Kruskal's algorithm on graph with " << n << " vertices and "
+              << edges.size() << " edges" << std::endl;
 
-    // Check for valid graph data
-    if (num_vertices <= 0) {
-        return new MST(0);
-    }
+    // Execute Kruskal's algorithm
+    vector<tuple<int, int, int, int>> mst_edges = kruskal(edges, n);
 
-    // Run Kruskal's algorithm
-    auto mst_edges = kruskal(edges, num_vertices);
-
-    // Create and return MST
-    return new MST(mst_edges, num_vertices);
+    // Create and return MST object
+    return new MST(mst_edges, n);
 }

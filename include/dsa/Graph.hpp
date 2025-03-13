@@ -4,17 +4,17 @@
 #include <vector>
 #include <tuple>
 #include <set>
-using adjList = std::vector<std::vector<std::pair<int, int>>>;
+using adj_list = std::vector<std::vector<std::pair<int, int>>>;
 
 class Graph {
-    adjList graph;
+    adj_list graph;
     int vertices, edges;
 
 public:
     Graph(int v);
     Graph(int v, int e);
 
-    explicit Graph(adjList &graph);
+    explicit Graph(adj_list &graph);
 
     Graph() : vertices(0), edges(0) {}
 
@@ -24,7 +24,7 @@ public:
 
     int getVertices() const { return vertices; }
 
-    const adjList& getGraph() { return graph; }
+    const adj_list& getGraph() { return graph; }
 
     bool isEmpty() const { return vertices == 0 && edges == 0; }
 

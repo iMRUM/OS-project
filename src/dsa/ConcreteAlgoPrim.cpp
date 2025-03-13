@@ -1,137 +1,119 @@
 #include "../../include/dsa/ConcreteAlgoPrim.hpp"
+#include <iostream>
+#include <vector>
+#include <set>
 
-vector<tuple<int, int, int, int>> ConcreteAlgoPrim::_prim(const vector<vector<Edge>> &adj, int n) {
-    std::cout << "Running _prim with " << n << " vertices" << std::endl;
-    vector<tuple<int, int, int, int>> spanning_tree;
+vector<tuple<int, int, int, int>> ConcreteAlgoPrim::_prim(
+    const vector<vector<Edge>> &adj, int n) {
 
-    if (n <= 0) {
-        std::cout << "Invalid number of vertices in _prim" << std::endl;
-        return spanning_tree;
-    }
+    vector<tuple<int, int, int, int>> result;
 
-    // Check if the graph has any edges
-    bool has_edges = false;
-    for (int i = 0; i < n; i++) {
-        if (!adj[i].empty()) {
-            has_edges = true;
-            break;
-        }
-    }
+    // Priority queue to find minimum weight edge
+    std::set<Edge> q;
 
-    if (!has_edges) {
-        std::cout << "Graph has no edges" << std::endl;
-        return spanning_tree;
-    }
-
-    // Find a good starting vertex (one with edges)
-    int start_vertex = 0;
-    for (int i = 0; i < n; i++) {
-        if (!adj[i].empty()) {
-            start_vertex = i;
-            break;
-        }
-    }
-
-    std::cout << "Starting Prim's algorithm from vertex " << start_vertex << std::endl;
-
-    // Initialize data structures
-    vector<Edge> min_e(n, Edge()); // Initialize all with Edge() constructor
-    min_e[start_vertex].w = 0;  // Start vertex has zero weight
-
-    set<Edge> q;
-    q.insert({0, start_vertex, -1});  // {weight, vertex, edge_id}
-
-    std::cout << "Initialized queue with start vertex" << std::endl;
-
+    // Array to keep track of which vertices are in MST
     vector<bool> selected(n, false);
 
-    try {
-        while (!q.empty()) {
-            Edge current = *q.begin();
-            int v = current.to;
+    // Start with vertex 0
+    int src = 0;
+    selected[src] = true;
 
-            std::cout << "Processing vertex " << v << " with weight " << current.w << std::endl;
+    // Add all edges from source to priority queue
+    for (const Edge &e : adj[src]) {
+        q.insert(e);
+    }
 
-            if (v < 0 || v >= n) {
-                std::cout << "Invalid vertex index: " << v << std::endl;
-                q.erase(q.begin());
-                continue;
-            }
+    // Debug: Print initial queue size
+    std::cout << "Prim: Initial queue size from vertex " << src << ": " << q.size() << std::endl;
 
-            if (selected[v]) {
-                // If we've already selected this vertex, skip it
-                q.erase(q.begin());
-                continue;
-            }
+    // Process n-1 edges to build MST
+    while (!q.empty() && result.size() < n - 1) {
+        // Get minimum weight edge
+        Edge minEdge = *q.begin();
+        q.erase(q.begin());
 
-            selected[v] = true;
-            q.erase(q.begin());
+        int to = minEdge.to;
 
-            if (min_e[v].to != -1) {
-                std::cout << "Adding edge to MST: " << min_e[v].to << " -> " << v
-                          << " with weight " << min_e[v].w << std::endl;
-                spanning_tree.emplace_back(min_e[v].to, v, min_e[v].w, min_e[v].id);
-            }
+        // Skip if destination already in MST
+        if (selected[to]) continue;
 
-            // Process adjacent edges
-            for (const Edge& e: adj[v]) {
-                if (e.to < 0 || e.to >= n) {
-                    std::cout << "Skipping edge with invalid target: " << e.to << std::endl;
-                    continue;
-                }
+        // Add edge to MST
+        int weight = minEdge.w;
+        int id = minEdge.id;
 
-                if (!selected[e.to] && e.w < min_e[e.to].w) {
-                    // Try-catch to handle any issues with set operations
-                    try {
-                        // Only try to erase if the vertex is already in the queue
-                        if (min_e[e.to].w != INF) {
-                            auto it = q.find({min_e[e.to].w, e.to, min_e[e.to].id});
-                            if (it != q.end()) {
-                                q.erase(it);
-                            }
-                        }
-
-                        min_e[e.to] = {e.w, v, e.id};
-                        q.insert({e.w, e.to, e.id});
-
-                        std::cout << "Updated edge to " << e.to << " with new weight "
-                                  << e.w << " from vertex " << v << std::endl;
-                    } catch (const std::exception& ex) {
-                        std::cout << "Exception in queue operations: " << ex.what() << std::endl;
+        // Find the source vertex for this edge
+        int from = -1;
+        for (int i = 0; i < n; i++) {
+            if (selected[i]) {
+                for (const Edge &e : adj[i]) {
+                    if (e.to == to && e.w == weight && e.id == id) {
+                        from = i;
+                        break;
                     }
                 }
+                if (from != -1) break;
             }
         }
-    } catch (const std::exception& ex) {
-        std::cout << "Exception in Prim's algorithm: " << ex.what() << std::endl;
-    }
 
-    std::cout << "Prim's algorithm complete, found " << spanning_tree.size()
-              << " edges" << std::endl;
-    return spanning_tree;
-}
-
-vector<tuple<int, int, int, int> > ConcreteAlgoPrim::prim(const vector<tuple<int, int, int, int> > &edges, int n) {
-    {
-        vector<vector<Edge> > adj(n);
-        for (const auto &e: edges) {
-            int a, b, c, id;
-            tie(a, b, c, id) = e;
-            adj[a].push_back(Edge(c, b, id));
-            adj[b].push_back(Edge(c, a, id));
+        if (from == -1) {
+            std::cerr << "Prim: Error finding source vertex for edge to " << to << std::endl;
+            continue;
         }
 
-        vector<tuple<int, int, int, int> > res = _prim(adj, n);
+        // Debug: Print added edge
+        std::cout << "Prim: Adding edge " << from << " -> " << to << " (weight: " << weight << ")" << std::endl;
 
-        return res;
+        result.push_back(make_tuple(from, to, weight, id));
+        selected[to] = true;
+
+        // Add all edges from new vertex
+        for (const Edge &e : adj[to]) {
+            if (!selected[e.to]) {
+                q.insert(e);
+            }
+        }
     }
+
+    // Debug: Print result size
+    std::cout << "Prim result: " << result.size() << " edges in MST" << std::endl;
+
+    return result;
 }
 
-MST *ConcreteAlgoPrim::execute(Graph &graph) {
-    if (graph.isEmpty()) {
-        return new MST(0);
+vector<tuple<int, int, int, int>> ConcreteAlgoPrim::prim(
+    const vector<tuple<int, int, int, int>> &edges, int n) {
+
+    // Build adjacency list from edge list
+    vector<vector<Edge>> adj(n);
+
+    for (const auto &edge : edges) {
+        int u = get<0>(edge);
+        int v = get<1>(edge);
+        int w = get<2>(edge);
+        int id = get<3>(edge);
+
+        adj[u].push_back(Edge(w, v, id));
     }
-    auto [edges, num_vertices] = graph.getAsPair();
-    auto mst_edges = prim(edges, num_vertices);
-    return new MST(mst_edges, num_vertices);
+
+    // Debug: Print adjacency list
+    for (int i = 0; i < n; i++) {
+        std::cout << "Vertex " << i << " has " << adj[i].size() << " edges" << std::endl;
+    }
+
+    return _prim(adj, n);
+}
+
+MST* ConcreteAlgoPrim::execute(Graph &graph) {
+    // Get edge list and vertex count from graph
+    auto [edges, n] = graph.getAsPair();
+
+    // Debug: Print graph information
+    std::cout << "Executing Prim's algorithm on graph with " << n << " vertices and "
+              << edges.size() << " edges" << std::endl;
+
+    // Execute Prim's algorithm
+    vector<tuple<int, int, int, int>> mst_edges = prim(edges, n);
+
+    // Create and return MST object
+    return new MST(mst_edges, n);
 }

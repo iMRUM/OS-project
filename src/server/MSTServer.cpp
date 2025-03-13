@@ -171,14 +171,14 @@ void MSTServer::processCommand(int socket_fd, std::string &command) {
             continue;
         }
 
-        // Convert to lowercase for case-insensitive matching
+        // Convert to lowercase for case-insensitive comparison
         std::string lowerLine = line;
         std::transform(lowerLine.begin(), lowerLine.end(), lowerLine.begin(), ::tolower);
 
         // Map client commands to our internal command format
         std::string processedLine;
 
-        if (line.substr(0, 8) == "Newgraph" || line.substr(0, 8) == "newgraph") {
+        if (lowerLine.substr(0, 8) == "newgraph") {
             // Extract the number of vertices
             std::istringstream iss(line);
             std::string cmd;
@@ -186,7 +186,6 @@ void MSTServer::processCommand(int socket_fd, std::string &command) {
             iss >> cmd;  // Extract "Newgraph"
 
             if (iss >> n && n >= 0) {
-                // Use exact constant from commands.hpp
                 processedLine = "new_graph " + std::to_string(n);
 
                 // If there's also an edge count, include it
@@ -199,7 +198,7 @@ void MSTServer::processCommand(int socket_fd, std::string &command) {
                 continue;
             }
         }
-        else if (line == "PrintGraph" || line == "printgraph") {
+        else if (lowerLine == "printgraph") {
             processedLine = "print_graph";
         }
         else if (lowerLine.substr(0, 3) == "mst") {

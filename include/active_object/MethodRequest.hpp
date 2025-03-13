@@ -151,12 +151,12 @@ public:
 class GetShortestDistRequest : public MethodRequest {
 private:
     int s, d;
-    const adjList &graph;
+    const adj_list &graph;
     MSTServant* servant;
     Future<int>* result;
 
 public:
-    GetShortestDistRequest(MSTServant* servant, Future<int>* result, const adjList &graph, int s, int d)
+    GetShortestDistRequest(MSTServant* servant, Future<int>* result, const adj_list &graph, int s, int d)
         : s(s), d(d), graph(graph), servant(servant), result(result) {}
 
     bool guard() const override {
