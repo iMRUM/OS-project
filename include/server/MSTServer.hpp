@@ -26,9 +26,8 @@
 #include <memory>
 #include "../dsa/Graph.hpp"
 #include "../dsa/MST.hpp"
-#include "../factory/ConcreteAlgoFactory.hpp"
-#include "../active_object/MSTPipeline.hpp"
 #include "../commands.hpp"
+
 // Function to get sockaddr, IPv4 or IPv6:
 void *get_in_addr(struct sockaddr *sa);
 
@@ -39,19 +38,24 @@ struct ClientData {
 };
 
 class MSTServer {
-private:
+protected:
     int listener;
     bool running;
-    std::vector<std::thread> client_threads;
-    std::unique_ptr<MSTPipeline> mstPipeline;
 
-    void stop();
-    void handleClient(ClientData *client_data);
-    void setupSocket();
-    void processCommand(int socket_fd, std::string &command);
+    virtual void stop() = 0;
+
+    virtual void handleClient(ClientData *client_data) = 0;
+
+    virtual void setupSocket() = 0;
+
+    virtual void processCommand(int socket_fd, std::string &command) = 0;
 
 public:
-    MSTServer(): listener(-1), running(false) {}
-    void start();
+    MSTServer(): listener(-1), running(false) {
+    }
+
+    virtual void start() = 0;
+
+    virtual ~MSTServer() = default;
 };
 #endif //MSTSERVER_HPP

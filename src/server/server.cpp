@@ -1,7 +1,7 @@
-#include "../../include/server/MSTServer.hpp"
+#include "../../include/server/MSTPipelineServer.hpp"
 
 int main() {
-    MSTServer server;
+    MSTPipelineServer server;
     server.start();
     return 0;
 }
