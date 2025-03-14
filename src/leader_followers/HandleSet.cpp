@@ -92,27 +92,43 @@ bool HandleSet::dispatchEvent(const Handle& handle) {
     
     auto handleIt = handlers.find(handle);
     if (handleIt == handlers.end()) {
+        std::cerr << "Warning: No handlers found for handle " << handle.get() << std::endl;
         return false; // Handle not found
     }
-    
+
     bool eventDispatched = false;
-    
+
     // For each event type registered for this handle
     for (auto& eventPair : handleIt->second) {
         EventType eventType = eventPair.first;
         auto& entry = eventPair.second;
-        
+
         // Skip suspended handlers
         if (entry.suspended) {
             continue;
         }
-        
+
+        // Make sure handler is valid
+        if (entry.handler == nullptr) {
+            std::cerr << "Error: Null handler for handle " << handle.get() << std::endl;
+            continue;
+        }
+
         // Dispatch to the handler
-        if (entry.handler != nullptr) {
+        try {
             // Convert EventType enum to int for the handler interface
             int eventTypeInt = static_cast<int>(eventType);
-            entry.handler->handleEvent(handle, eventTypeInt);
+            int result = entry.handler->handleEvent(handle, eventTypeInt);
             eventDispatched = true;
+
+            // If handler returns error, it may have closed the connection
+            if (result < 0) {
+                std::cout << "Handler for handle " << handle.get()
+                          << " returned error, may need cleanup" << std::endl;
+            }
+        }
+        catch (const std::exception& e) {
+            std::cerr << "Exception in event handler: " << e.what() << std::endl;
         }
     }
     

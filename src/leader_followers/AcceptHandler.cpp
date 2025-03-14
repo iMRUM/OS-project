@@ -19,6 +19,8 @@ int AcceptHandler::handleEvent(const Handle& handle, int eventType) {
         return -1;
     }
     
+    std::cout << "AcceptHandler triggered for handle " << handle.get() << std::endl;
+
     // Accept a new client connection
     return acceptClient();
 }

@@ -50,19 +50,22 @@ void MSTLeaderFollowersServer::start() {
     // Register the accept handler with the handle set
     handleSet_->registerHandler(listenerHandle, EventType::READ, acceptHandler_.get());
     
+    // Set running to true before starting the thread pool
+    running = true;
+
     // Start the thread pool
     threadPool_->start();
-    
+
     std::cout << "MST Leader/Followers server started on port " << PORT << std::endl;
     std::cout << "Using " << numThreads_ << " threads in the pool" << std::endl;
     std::cout << "Waiting for connections..." << std::endl;
-    
+
     // Keep the main thread alive until the server is stopped
-    // You could also join one of the worker threads instead
     while (running) {
         sleep(1);
     }
 }
+
 
 void MSTLeaderFollowersServer::stop() {
     std::lock_guard<std::mutex> lock(mutex_);

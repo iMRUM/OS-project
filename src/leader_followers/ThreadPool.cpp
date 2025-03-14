@@ -103,88 +103,94 @@ void ThreadPool::join() {
 }
 
 void ThreadPool::processEventsAndTasks() {
-    // If we have a HandleSet, wait for events on it
-    if (handleSet_ != nullptr && !handleSet_->isEmpty()) {
-        // First check for any tasks
-        bool hasTask = false;
-        std::function<void()> task;
+    while (running && synchronizer.isLeader()) {
+        // If we have a HandleSet, wait for events on it
+        if (handleSet_ != nullptr && !handleSet_->isEmpty()) {
+            // First check for any tasks
+            bool hasTask = false;
+            std::function<void()> task;
 
-        {
-            std::unique_lock<std::mutex> taskLock(mutex);
-            if (!taskQueue.empty()) {
-                task = taskQueue.front();
-                taskQueue.pop();
-                hasTask = true;
-            }
-        }
-
-        // If there's a task, process it first
-        if (hasTask) {
-            // Promote a new leader before processing the task
-            promoteNewLeader();
-
-            // Process the task
-            if (task) {
-                task();
-            }
-
-            return;
-        }
-
-        // No task, so wait for events on handles (with a short timeout to check for tasks periodically)
-        Handle handle = handleSet_->waitForEvents(1000);
-
-        // If we got a valid handle, dispatch the event
-        if (handle.isValid()) {
-            // Promote a new leader before processing the event
-            promoteNewLeader();
-
-            // Dispatch the event to its handler
-            handleSet_->dispatchEvent(handle);
-
-            return;
-        }
-
-        // If we reach here, there was no event, so we'll check for tasks again on the next iteration
-    } else {
-        // No HandleSet or empty HandleSet, just wait for tasks
-        bool hasTask = false;
-        std::function<void()> task;
-
-        {
-            std::unique_lock<std::mutex> taskLock(mutex);
-            // Wait for a task or stop signal
-            taskCondition.wait(taskLock, [this, &hasTask, &task]() {
-                if (!running) {
-                    return true; // Stop signal received
-                }
-
+            {
+                std::unique_lock<std::mutex> taskLock(mutex);
                 if (!taskQueue.empty()) {
                     task = taskQueue.front();
                     taskQueue.pop();
                     hasTask = true;
-                    return true; // Task available
+                }
+            }
+
+            // If there's a task, process it first
+            if (hasTask) {
+                // Promote a new leader before processing the task
+                promoteNewLeader();
+
+                // Process the task
+                if (task) {
+                    task();
                 }
 
-                return false; // Keep waiting
-            });
-        }
+                return;
+            }
 
-        // If we're stopped, exit
-        if (!running) {
-            // Release leadership status before exiting
-            synchronizer.releaseLeader();
-            return;
-        }
+            // No task, so wait for events on handles (with a shorter timeout)
+            Handle handle = handleSet_->waitForEvents(100);  // Reduced from 1000ms to 100ms
 
-        // If we have a task, process it after promoting a new leader
-        if (hasTask) {
-            // Promote a new leader before processing the task
-            promoteNewLeader();
+            // If we got a valid handle, dispatch the event
+            if (handle.isValid()) {
+                // Promote a new leader before processing the event
+                promoteNewLeader();
 
-            // Process the task
-            if (task) {
-                task();
+                // Dispatch the event to its handler
+                handleSet_->dispatchEvent(handle);
+
+                return;
+            }
+
+            // No event received, check if we should keep being the leader
+            // Add a small sleep to prevent tight loop CPU consumption
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        } else {
+            // No HandleSet or empty HandleSet, just wait for tasks
+            bool hasTask = false;
+            std::function<void()> task;
+
+            {
+                std::unique_lock<std::mutex> taskLock(mutex);
+                // Wait for a task or stop signal
+                taskCondition.wait_for(taskLock, std::chrono::milliseconds(100), [this, &hasTask, &task]() {
+                    if (!running) {
+                        return true; // Stop signal received
+                    }
+
+                    if (!taskQueue.empty()) {
+                        task = taskQueue.front();
+                        taskQueue.pop();
+                        hasTask = true;
+                        return true; // Task available
+                    }
+
+                    return false; // Keep waiting
+                });
+            }
+
+            // If we're stopped, exit
+            if (!running) {
+                // Release leadership status before exiting
+                synchronizer.releaseLeader();
+                return;
+            }
+
+            // If we have a task, process it after promoting a new leader
+            if (hasTask) {
+                // Promote a new leader before processing the task
+                promoteNewLeader();
+
+                // Process the task
+                if (task) {
+                    task();
+                }
+
+                return;
             }
         }
     }

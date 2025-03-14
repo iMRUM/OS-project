@@ -45,6 +45,13 @@ int CommandHandler::handleEvent(const Handle& handle, int eventType) {
     
     // Process the command
     std::string command(buffer_);
+    // Remove trailing \r\n
+    if (!command.empty() && command.back() == '\n') {
+        command.pop_back();
+    }
+    if (!command.empty() && command.back() == '\r') {
+        command.pop_back();
+    }
     return processCommand(command);
 }
 

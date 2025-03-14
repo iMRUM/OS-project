@@ -28,7 +28,7 @@ bool ThreadSynchronizer::promoteFollower() {
     hasLeader = false;
     
     // Notify one waiting follower to become the leader
-    leaderCondition.notify_one();
+    leaderCondition.notify_all();
     
     return true;
 }
