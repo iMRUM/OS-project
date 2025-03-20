@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.29)
 project(os_project)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 20)
 
 # Create a test executable for Graph tests
 add_executable(graph_tests
@@ -56,4 +56,6 @@ add_executable(graph_tests
         src/leader_followers/AcceptHandler.cpp
         src/server/MSTLeaderFollowersServer.cpp
         include/server/MSTLeaderFollowersServer.hpp
+        include/leader_followers/LFThreadPool.hpp
+        include/leader_followers/Reactor.hpp
 )
