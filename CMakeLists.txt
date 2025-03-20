@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.29)
-project(os_assignments_master)
+project(os_project)
 
 set(CMAKE_CXX_STANDARD 14)
 
@@ -15,7 +15,7 @@ add_executable(graph_tests
         src/dsa/UnionFind.cpp
         src/dsa/UnionFind.cpp
         include/dsa/UnionFind.hpp
-        include/server/server.hpp
+        include/server/Server.hpp
         src/server/server.cpp
         src/dsa/ConcreteAlgoKruskal.cpp
         src/dsa/ConcreteAlgoPrim.cpp
