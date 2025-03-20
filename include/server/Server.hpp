@@ -26,11 +26,11 @@ char remoteIP[INET6_ADDRSTRLEN];
 
 void *get_in_addr(struct sockaddr *sa);
 
-void handleRequest(int clientfd);
+void handleRequest(void* client_attr);
 
 void handleCommand(int clientfd, const std::string &input_command);
 
-void handleAcceptClient(int fd_listener);
+void handleAcceptClient(void* listener_attr);
 
 void init();
 
