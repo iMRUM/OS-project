@@ -16,7 +16,9 @@
 #include <string>
 #include <sstream>
 #include <csignal>
-
+#include "../dsa/Graph.hpp"
+#include "../dsa/MST.hpp"
+#include "../commands.hpp"
 
 struct sockaddr_storage remoteaddr; // client address
 socklen_t addrlen;

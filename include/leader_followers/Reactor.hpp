@@ -31,7 +31,7 @@ struct reactor {
     int max_fd;              /* Highest file descriptor value */
     int running;             /* Flag to control reactor loop */
     reactorFunc r_funcs[MAX_FDS]; /* Array of callback functions */
-
+    pthread_mutex_t r_mtx = PTHREAD_MUTEX_INITIALIZER;
 };
 
 typedef struct reactor reactor_t;

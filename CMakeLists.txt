@@ -40,22 +40,11 @@ add_executable(graph_tests
         include/server/MSTPipelineServer.hpp
         include/server/MSTPipelineServer.hpp
         src/server/MSTPipelineServer.cpp
-        include/leader_followers/ConcreteEventHandler.hpp
-        include/leader_followers/EventHandler.hpp
-        include/leader_followers/ThreadPool.hpp
-        include/leader_followers/Handle.hpp
-        include/leader_followers/HandleSet.hpp
-        include/leader_followers/ThreadSynchronizer.hpp
-        src/leader_followers/ThreadPool.cpp
-        src/leader_followers/ThreadSynchronizer.cpp
-        src/leader_followers/Handle.cpp
-        src/leader_followers/HandleSet.cpp
-        include/leader_followers/AcceptHandler.hpp
-        include/leader_followers/CommandHandler.hpp
-        src/leader_followers/CommandHandler.cpp
-        src/leader_followers/AcceptHandler.cpp
-        src/server/MSTLeaderFollowersServer.cpp
         include/server/MSTLeaderFollowersServer.hpp
         include/leader_followers/LFThreadPool.hpp
         include/leader_followers/Reactor.hpp
+        src/leader_followers/LFThreadPool.cpp
+        src/leader_followers/Reactor.cpp
+        src/server/MSTServerLF.cpp
+        src/server/MSTServerPipeline.cpp
 )
