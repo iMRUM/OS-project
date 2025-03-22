@@ -28,17 +28,24 @@ int LFThreadPool::join() {
         std::cout << "[LFThreadPool] Thread " << leader_thread << " became leader" << std::endl;
 
         // Leader monitors the reactor for events
-        pthread_mutex_lock(&(reactor_p->r_mtx));
+        pthread_mutex_lock(&reactor_mutex);
+        std::cout << "[LFThreadPool] Thread " << leader_thread << " locked reactor_mutex" << std::endl;
         fd_set read_fds = reactor_p->fds;
-        pthread_mutex_unlock(&(reactor_p->r_mtx));
-        int ready = select(reactor_p->max_fd + 1, &read_fds, nullptr, nullptr, nullptr);
-
+        int read_fds_size = reactor_p->max_fd;
+        pthread_mutex_unlock(&reactor_mutex);
+        std::cout << "[LFThreadPool] Thread " << leader_thread << " unlocked reactor_mutex" << std::endl;
+        int ready = select(read_fds_size + 1, &read_fds, nullptr, nullptr, nullptr);
+        std::cout << "[LFThreadPool] Thread " << leader_thread << " has update" << std::endl;
         if (ready > 0) {
             // Found activity - find which fd is ready
             for (int fd = 0; fd <= reactor_p->max_fd; fd++) {
                 if (FD_ISSET(fd, &read_fds)) {
                     // Save the callback function
+                    pthread_mutex_lock(&reactor_mutex);
+                    std::cout << "[LFThreadPool] Thread " << leader_thread << " locked2 reactor_mutex" << std::endl;
                     reactorFunc callback = reactor_p->r_funcs[fd];
+                    pthread_mutex_unlock(&reactor_mutex);
+                    std::cout << "[LFThreadPool] Thread " << leader_thread << " unlocked2 reactor_mutex" << std::endl;
 
                     // Temporarily remove this fd from the reactor
                     removeFd(fd);
@@ -72,6 +79,8 @@ void LFThreadPool::addFd(int fd, reactorFunc func) {
 
 void LFThreadPool::removeFd(int fd) {
     pthread_mutex_lock(&reactor_mutex);
-    removeFdFromReactor(reactor_p, fd);
+    if(removeFdFromReactor(reactor_p, fd) < 0) {
+        perror("removeFdFromReactor");
+    }
     pthread_mutex_unlock(&reactor_mutex);
 }

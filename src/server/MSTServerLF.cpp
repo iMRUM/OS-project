@@ -67,8 +67,8 @@ void stop(){}
 
 void start(){}
 
-void handleRequest(void* client_attr) {
-    int clientfd = *(int*)client_attr;
+void handleRequest(int clientfd) {
+   // int clientfd = *(int*)client_attr;
     char buf[256]; // buffer for client data
     int nbytes;
         if ((nbytes = recv(clientfd, buf, sizeof buf - 1, 0)) <= 0) {
@@ -236,7 +236,7 @@ int main() {
             perror("Failed to create thread");
             return 1;
         }
-        std::cout << "Created worker thread " << i << std::endl;
+        std::cout << "Created worker thread " << threads[i] << std::endl;
     }
 
     // Wait for all threads to finish
