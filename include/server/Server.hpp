@@ -32,7 +32,7 @@ void handleRequest(void* client_attr);
 
 void handleCommand(int clientfd, const std::string &input_command);
 
-void handleAcceptClient(void* listener_attr);
+void handleAcceptClient(int fd_listener);
 
 void init();
 

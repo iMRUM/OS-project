@@ -40,23 +40,31 @@ int LFThreadPool::join() {
             // Found activity - find which fd is ready
             for (int fd = 0; fd <= reactor_p->max_fd; fd++) {
                 if (FD_ISSET(fd, &read_fds)) {
-                    // Save the callback function
+                    // Copy values before unlocking to avoid race conditions
                     pthread_mutex_lock(&reactor_mutex);
-                    std::cout << "[LFThreadPool] Thread " << leader_thread << " locked2 reactor_mutex" << std::endl;
                     reactorFunc callback = reactor_p->r_funcs[fd];
+                    int fd_copy = fd;
                     pthread_mutex_unlock(&reactor_mutex);
-                    std::cout << "[LFThreadPool] Thread " << leader_thread << " unlocked2 reactor_mutex" << std::endl;
+
+                    if (callback == nullptr) {
+                        std::cerr << "Error: Null callback for fd " << fd_copy << std::endl;
+                        continue;  // Skip this fd and check others
+                    }
 
                     // Temporarily remove this fd from the reactor
-                    removeFd(fd);
+                    removeFd(fd_copy);
 
                     // Promote a new leader before processing
                     promote_new_leader();
 
-                    // Process the event
-                    callback(fd);
-
-                    // Add the fd back to the reactor
+                    try {
+                        // Process the event using the copied fd
+                        callback(fd_copy);
+                    } catch (const std::exception& e) {
+                        std::cerr << "Exception in callback: " << e.what() << std::endl;
+                    } catch (...) {
+                        std::cerr << "Unknown exception in callback!" << std::endl;
+                    }
                     addFd(fd, callback);
 
                     break;

@@ -68,22 +68,26 @@ void stop(){}
 void start(){}
 
 void handleRequest(int clientfd) {
-   // int clientfd = *(int*)client_attr;
     char buf[256]; // buffer for client data
     int nbytes;
-        if ((nbytes = recv(clientfd, buf, sizeof buf - 1, 0)) <= 0) {
-            // got error or connection closed by client
-            if (nbytes == 0) {
-                // connection closed
-                printf("Socket %d hung up\n", clientfd);
-            } else {
-                perror("recv");
-            }
-        buf[nbytes] = '\0';
-        pthread_mutex_lock(&graph_mtx);
-        handleCommand(clientfd, buf);
-        pthread_mutex_unlock(&graph_mtx);
+
+    nbytes = recv(clientfd, buf, sizeof(buf) - 1, 0);
+    if (nbytes <= 0) {
+        // Got error or connection closed by client
+        if (nbytes == 0) {
+            // Connection closed
+            printf("Socket %d hung up\n", clientfd);
+        } else {
+            perror("recv");
+        }
+        close(clientfd);  // Close the socket if recv failed
+        return;
     }
+
+    buf[nbytes] = '\0';
+    pthread_mutex_lock(&graph_mtx);
+    handleCommand(clientfd, buf);
+    pthread_mutex_unlock(&graph_mtx);
 }
 
 void handleCommand(int clientfd, const std::string &command) {
@@ -214,15 +218,18 @@ void handleCommand(int clientfd, const std::string &command) {
     }
 }
 
-void handleAcceptClient(void* listener_attr){
-    int fd_listener = *(int*)listener_attr;
+void handleAcceptClient(int fd_listener) {
     std::cout << "Accepted connection THREAD, listening on socket " << fd_listener << std::endl;
     int newfd;
-    addrlen = sizeof(remoteaddr);
-        if ((newfd = accept(fd_listener, (struct sockaddr *) &remoteaddr, &addrlen)) < 0) {
-            perror("accept");
-        }
-        threadPool.addFd(newfd, reactorFunc(handleRequest));
+    struct sockaddr_storage remoteaddr;
+    socklen_t addrlen = sizeof(remoteaddr);
+
+    if ((newfd = accept(fd_listener, (struct sockaddr *)&remoteaddr, &addrlen)) < 0) {
+        perror("accept");
+        return;
+    }
+
+    threadPool.addFd(newfd, &handleRequest);  // Use direct function pointer
 }
 int main() {
     // Initialize the server (sets up the socket listener)
