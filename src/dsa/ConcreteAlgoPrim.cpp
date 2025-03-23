@@ -3,10 +3,9 @@
 #include <vector>
 #include <set>
 
-vector<tuple<int, int, int, int>> ConcreteAlgoPrim::_prim(
-    const vector<vector<Edge>> &adj, int n) {
-
-    vector<tuple<int, int, int, int>> result;
+vector<tuple<int, int, int, int> > ConcreteAlgoPrim::_prim(
+    const vector<vector<Edge> > &adj, int n) {
+    vector<tuple<int, int, int, int> > result;
 
     // Priority queue to find minimum weight edge
     std::set<Edge> q;
@@ -19,13 +18,9 @@ vector<tuple<int, int, int, int>> ConcreteAlgoPrim::_prim(
     selected[src] = true;
 
     // Add all edges from source to priority queue
-    for (const Edge &e : adj[src]) {
+    for (const Edge &e: adj[src]) {
         q.insert(e);
     }
-
-    // Debug: Print initial queue size
-    std::cout << "Prim: Initial queue size from vertex " << src << ": " << q.size() << std::endl;
-
     // Process n-1 edges to build MST
     while (!q.empty() && result.size() < n - 1) {
         // Get minimum weight edge
@@ -45,7 +40,7 @@ vector<tuple<int, int, int, int>> ConcreteAlgoPrim::_prim(
         int from = -1;
         for (int i = 0; i < n; i++) {
             if (selected[i]) {
-                for (const Edge &e : adj[i]) {
+                for (const Edge &e: adj[i]) {
                     if (e.to == to && e.w == weight && e.id == id) {
                         from = i;
                         break;
@@ -59,34 +54,25 @@ vector<tuple<int, int, int, int>> ConcreteAlgoPrim::_prim(
             std::cerr << "Prim: Error finding source vertex for edge to " << to << std::endl;
             continue;
         }
-
-        // Debug: Print added edge
-        std::cout << "Prim: Adding edge " << from << " -> " << to << " (weight: " << weight << ")" << std::endl;
-
         result.push_back(make_tuple(from, to, weight, id));
         selected[to] = true;
 
         // Add all edges from new vertex
-        for (const Edge &e : adj[to]) {
+        for (const Edge &e: adj[to]) {
             if (!selected[e.to]) {
                 q.insert(e);
             }
         }
     }
-
-    // Debug: Print result size
-    std::cout << "Prim result: " << result.size() << " edges in MST" << std::endl;
-
     return result;
 }
 
-vector<tuple<int, int, int, int>> ConcreteAlgoPrim::prim(
-    const vector<tuple<int, int, int, int>> &edges, int n) {
-
+vector<tuple<int, int, int, int> > ConcreteAlgoPrim::prim(
+    const vector<tuple<int, int, int, int> > &edges, int n) {
     // Build adjacency list from edge list
-    vector<vector<Edge>> adj(n);
+    vector<vector<Edge> > adj(n);
 
-    for (const auto &edge : edges) {
+    for (const auto &edge: edges) {
         int u = get<0>(edge);
         int v = get<1>(edge);
         int w = get<2>(edge);
@@ -94,26 +80,14 @@ vector<tuple<int, int, int, int>> ConcreteAlgoPrim::prim(
 
         adj[u].push_back(Edge(w, v, id));
     }
-
-    // Debug: Print adjacency list
-    for (int i = 0; i < n; i++) {
-        std::cout << "Vertex " << i << " has " << adj[i].size() << " edges" << std::endl;
-    }
-
     return _prim(adj, n);
 }
 
-MST* ConcreteAlgoPrim::execute(Graph &graph) {
+MST *ConcreteAlgoPrim::execute(Graph &graph) {
     // Get edge list and vertex count from graph
     auto [edges, n] = graph.getAsPair();
-
-    // Debug: Print graph information
-    std::cout << "Executing Prim's algorithm on graph with " << n << " vertices and "
-              << edges.size() << " edges" << std::endl;
-
     // Execute Prim's algorithm
-    vector<tuple<int, int, int, int>> mst_edges = prim(edges, n);
-
+    vector<tuple<int, int, int, int> > mst_edges = prim(edges, n);
     // Create and return MST object
     return new MST(mst_edges, n);
 }

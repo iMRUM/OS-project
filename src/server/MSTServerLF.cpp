@@ -11,8 +11,7 @@
 
 void executeCommand(const std::string &processedLine, int clientfd, std::function<void(std::string)> sendCallback);
 
-//forward declaration
-std::atomic<bool> running{false}; // Server running state
+std::atomic<bool> running{false};
 std::map<int, MSTServant *> client_servants;
 ConcreteAlgoFactory algoFactory;
 LFThreadPool *tp = new LFThreadPool();
@@ -21,7 +20,7 @@ pthread_mutex_t tp_mtx = PTHREAD_MUTEX_INITIALIZER;
 
 void *worker_function(void *arg) {
     LFThreadPool *pool = static_cast<LFThreadPool *>(arg);
-    pool->join(); // Thread joins the pool and follows leader-follower pattern
+    pool->join();
     return nullptr;
 }
 
@@ -74,13 +73,11 @@ void init() {
         exit(3);
     }
     tp->addFd(listener, reactorFunc(&handleAcceptClient));
-    // cout << "Server listening on socket " << listener << endl;
     running = true;
 }
 
 void stop() {
     running = false;
-    // Clean up all servants
     pthread_mutex_lock(&servants_mtx);
     for (auto &pair: client_servants) {
         delete pair.second;
@@ -94,7 +91,6 @@ void stop() {
 
 void start() {
     init();
-    // Create worker threads for the thread pool
     pthread_t threads[NUM_THREADS];
 
     for (int i = 0; i < NUM_THREADS; i++) {
@@ -102,12 +98,10 @@ void start() {
             perror("Failed to create thread");
             return;
         }
-        // std::cout << "Created worker thread " << threads[i] << std::endl;
     }
     while (running) {
-        sleep(1); // Sleep to avoid busy waiting
+        sleep(1);
     }
-    // Wait for all threads to finish
     for (int i = 0; i < NUM_THREADS; i++) {
         pthread_join(threads[i], nullptr);
     }
@@ -127,18 +121,12 @@ void handleRequest(int clientfd) {
     int nbytes;
 
     while (running) {
-        // Receive data from client
         nbytes = recv(clientfd, buf, sizeof(buf) - 1, 0);
 
         if (nbytes <= 0) {
-            // Connection closed or error
             break;
         }
-
-        // Null-terminate the received data
         buf[nbytes] = '\0';
-
-        // Process the received data
         std::string data(buf);
         handleCommand(clientfd, data);
     }
@@ -148,35 +136,27 @@ void handleRequest(int clientfd) {
         client_servants.erase(clientfd);
     }
     pthread_mutex_unlock(&servants_mtx);
-    //   std::cout << "Client on socket " << clientfd << " disconnected" << std::endl;
 }
 
-void handleCommand(int clientfd, const std::string &command) {
-    // Define a callback function to send responses to the client
+void handleCommand(int clientfd, const std::string &input_command) {
     auto sendCallback = [clientfd](std::string response) {
         send(clientfd, response.c_str(), response.length(), 0);
     };
 
-    // Process commands line by line
-    std::istringstream stream(command);
+    thread_local std::stringstream stream;
+    stream.clear();
+    stream.str(input_command);
     std::string line;
 
     while (std::getline(stream, line)) {
-        // Remove carriage return if present
         if (!line.empty() && line.back() == '\r') {
             line.pop_back();
         }
-
-        // Skip empty lines
         if (line.empty()) {
             continue;
         }
-
-        // Convert to lowercase for case-insensitive comparison
         std::string lowerLine = line;
         std::transform(lowerLine.begin(), lowerLine.end(), lowerLine.begin(), ::tolower);
-
-        // Map client commands to our internal command format
         std::string processedLine;
 
         if (lowerLine.substr(0, 8) == "newgraph") {
@@ -237,11 +217,10 @@ void handleCommand(int clientfd, const std::string &command) {
             sendCallback(helpText);
             continue;
         } else if (lowerLine.substr(0, 7) == "addedge") {
-            // Parse "AddEdge <source> <target> <weight>"
             std::istringstream iss(line);
             std::string cmd;
             int source, target, weight;
-            iss >> cmd; // Extract "AddEdge"
+            iss >> cmd;
 
             if (iss >> source >> target >> weight) {
                 processedLine = "add_edge " + std::to_string(source) + " " +
@@ -255,7 +234,6 @@ void handleCommand(int clientfd, const std::string &command) {
             std::istringstream iss(line);
             int source, target, weight;
             if (iss >> source >> target >> weight) {
-                // This is likely an edge being added
                 processedLine = "add_edge " + std::to_string(source) + " " +
                                 std::to_string(target) + " " + std::to_string(weight);
             } else {
@@ -263,15 +241,11 @@ void handleCommand(int clientfd, const std::string &command) {
                 continue;
             }
         }
-        //     std::cout << "Processing command: " << processedLine << std::endl;
         executeCommand(processedLine, clientfd, sendCallback);
     }
 }
 
 void handleAcceptClient(int fd_listener) {
-    //  std::cout << "Handling accept on listener " << fd_listener << std::endl;
-
-    // Accept the connection
     int clientfd;
     struct sockaddr_storage remoteaddr;
     socklen_t addrlen = sizeof(remoteaddr);
@@ -281,12 +255,11 @@ void handleAcceptClient(int fd_listener) {
         return;
     }
 
-    // std::cout << "Accepted new connection on fd " << clientfd << std::endl;
     std::string welcome = "Welcome to the MST Server. Type 'help' for commands.\n";
     send(clientfd, welcome.c_str(), welcome.length(), 0);
     // Create a new thread to handle this client
     pthread_mutex_lock(&tp_mtx);
-    tp->addFd(clientfd, &handleRequest); // Use direct function pointer
+    tp->addFd(clientfd, &handleRequest);
     pthread_mutex_unlock(&tp_mtx);
 }
 
@@ -334,11 +307,8 @@ void executeCommand(const std::string &processedLine, int clientfd, std::functio
 }
 
 int main() {
-    // Set up signal handlers
     signal(SIGINT, signalHandler);
     signal(SIGTERM, signalHandler);
-
-    // Start the server
     start();
 
     return 0;

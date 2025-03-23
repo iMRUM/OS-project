@@ -50,12 +50,8 @@ void *get_in_addr(struct sockaddr *sa) {
 
 // Signal handler for graceful shutdown
 void signalHandler(int signum) {
-    std::cout << "\nInterrupt signal (" << signum << ") received.\n";
-    std::cout << "Shutting down server...\n";
-
     // Call the stop function to clean up resources
     stop();
-
     exit(signum);
 }
 #endif //SERVER_HPP

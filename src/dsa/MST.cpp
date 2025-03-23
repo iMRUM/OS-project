@@ -17,10 +17,6 @@ MST::MST(const std::vector<std::tuple<int, int, int, int>>& edges, int vertices)
         int u = std::get<0>(edge);
         int v = std::get<1>(edge);
         int weight = std::get<2>(edge);
-
-        // Debug: Print edge being added to MST
-        std::cout << "MST: Adding edge " << u << " -> " << v << " (weight: " << weight << ")" << std::endl;
-
         // Add edge to MST
         addEdge(u, v, weight);
     }
@@ -173,8 +169,6 @@ int MST::findShortestPathWithMstEdge(const adj_list& originalGraph, int src, int
     dist[src] = 0;
     pq.push(std::make_pair(0, src));
 
-    // Debug info
-    std::cout << "Finding shortest path from " << src << " to " << dest << std::endl;
 
     while (!pq.empty()) {
         int u = pq.top().second;

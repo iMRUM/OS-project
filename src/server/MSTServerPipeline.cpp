@@ -23,9 +23,10 @@ class MSTPipeline;
 
 MSTPipeline *pl = nullptr;
 int listener = -1; // Main server socket
-std::mutex pipelineMutex; // Protect access to the pipeline
-std::mutex clientsMutex; // Protect access to the client list
-std::vector<int> activeClients; // Track active client sockets
+std::mutex pipeline_mtx; // Protect access to the pipeline
+std::mutex clients_mtx; // Protect access to the client list
+pthread_mutex_t listener_mtx = PTHREAD_MUTEX_INITIALIZER;
+std::vector<int> active_clients; // Track active client sockets
 std::atomic<bool> running{false}; // Server running state
 
 //==============================================================================
@@ -39,8 +40,8 @@ void *request_worker_function(void *arg) {
 
     // Add client to active list
     {
-        std::lock_guard<std::mutex> lock(clientsMutex);
-        activeClients.push_back(clientfd);
+        std::lock_guard<std::mutex> lock(clients_mtx);
+        active_clients.push_back(clientfd);
     }
 
     // Handle the client request
@@ -48,9 +49,9 @@ void *request_worker_function(void *arg) {
 
     // Remove client from active list
     {
-        std::lock_guard<std::mutex> lock(clientsMutex);
-        activeClients.erase(std::remove(activeClients.begin(), activeClients.end(), clientfd),
-                            activeClients.end());
+        std::lock_guard<std::mutex> lock(clients_mtx);
+        active_clients.erase(std::remove(active_clients.begin(), active_clients.end(), clientfd),
+                             active_clients.end());
     }
 
     close(clientfd);
@@ -80,8 +81,6 @@ void handleRequest(int clientfd) {
         std::string data(buf);
         handleCommand(clientfd, data);
     }
-
-    std::cout << "Client on socket " << clientfd << " disconnected" << std::endl;
 }
 
 void handleCommand(int clientfd, const std::string &input_command) {
@@ -89,8 +88,9 @@ void handleCommand(int clientfd, const std::string &input_command) {
         send(clientfd, response.c_str(), response.length(), 0);
     };
 
-    // Process commands line by line
-    std::istringstream stream(input_command);
+    thread_local std::stringstream stream;
+    stream.clear();  // Clear error flags
+    stream.str(input_command);  // Set the content
     std::string line;
 
     while (std::getline(stream, line)) {
@@ -155,14 +155,14 @@ void handleCommand(int clientfd, const std::string &input_command) {
 
             // Remove client from active list
             {
-                std::lock_guard<std::mutex> lock(clientsMutex);
-                activeClients.erase(std::remove(activeClients.begin(), activeClients.end(), clientfd),
-                                    activeClients.end());
+                std::lock_guard<std::mutex> lock(clients_mtx);
+                active_clients.erase(std::remove(active_clients.begin(), active_clients.end(), clientfd),
+                                     active_clients.end());
             }
 
             // Notify pipeline of client disconnect
             {
-                std::lock_guard<std::mutex> lock(pipelineMutex);
+                std::lock_guard<std::mutex> lock(pipeline_mtx);
                 if (pl) {
                     pl->removeProxy(clientfd);
                 }
@@ -210,13 +210,8 @@ void handleCommand(int clientfd, const std::string &input_command) {
                 sendCallback("Invalid command: " + line + "\n");
                 continue;
             }
-        }
-
-        std::cout << "Processing command: " << processedLine << std::endl; // Debug output
-
-        // Process the command through the pipeline - with mutex protection
-        {
-            std::lock_guard<std::mutex> lock(pipelineMutex);
+        } {
+            std::lock_guard<std::mutex> lock(pipeline_mtx);
             if (pl) {
                 pl->processCommand(processedLine, clientfd, sendCallback);
             } else {
@@ -229,26 +224,20 @@ void handleCommand(int clientfd, const std::string &input_command) {
 void handleAcceptClient() {
     struct sockaddr_storage client_addr;
     socklen_t addrlen;
+    int clientfd = -1;
     char remoteIP[INET6_ADDRSTRLEN];
-
-    std::cout << "Server started on port " << PORT << std::endl;
-    std::cout << "Waiting for connections..." << std::endl;
-
     while (running) {
-        addrlen = sizeof client_addr;
-        int clientfd = accept(listener, (struct sockaddr *) &client_addr, &addrlen);
-
+        pthread_mutex_lock(&listener_mtx);
+        if (listener >= 0) {
+            addrlen = sizeof client_addr;
+            clientfd = accept(listener, (struct sockaddr *) &client_addr, &addrlen);
+        }
+        pthread_mutex_unlock(&listener_mtx);
         if (clientfd == -1) {
+            if (!running) break;
             perror("accept");
             continue;
         }
-
-        // Print connection info
-        printf("Connection from %s\n",
-               inet_ntop(client_addr.ss_family,
-                         get_in_addr((struct sockaddr *) &client_addr),
-                         remoteIP, INET6_ADDRSTRLEN));
-
         // Create a new thread to handle this client
         pthread_t client_thread;
         int *client_fd_ptr = new int(clientfd); // Allocate new memory for the fd
@@ -268,7 +257,7 @@ void init() {
 
     // Create pipeline (with mutex protection)
     {
-        std::lock_guard<std::mutex> lock(pipelineMutex);
+        std::lock_guard<std::mutex> lock(pipeline_mtx);
         pl = new MSTPipeline();
     }
 
@@ -319,35 +308,33 @@ void init() {
 }
 
 void stop() {
-    std::cout << "Stopping server..." << std::endl;
     running = false;
-
     // Close listener socket
+    pthread_mutex_lock(&listener_mtx);
     if (listener >= 0) {
         close(listener);
         listener = -1;
     }
-
+    pthread_mutex_unlock(&listener_mtx);
     // Close all client connections
     {
-        std::lock_guard<std::mutex> lock(clientsMutex);
-        for (int fd: activeClients) {
+        std::lock_guard<std::mutex> lock(clients_mtx);
+        for (int fd: active_clients) {
             close(fd);
         }
-        activeClients.clear();
+        active_clients.clear();
     }
 
     // Shutdown and delete the pipeline
     {
-        std::lock_guard<std::mutex> lock(pipelineMutex);
+        std::lock_guard<std::mutex> lock(pipeline_mtx);
         if (pl) {
             pl->shutdown();
             delete pl;
             pl = nullptr;
         }
     }
-
-    std::cout << "Server stopped" << std::endl;
+    pthread_mutex_destroy(&listener_mtx);
 }
 
 void start() {
@@ -373,7 +360,7 @@ void start() {
 // Main function
 //==============================================================================
 
-int main(int argc, char *argv[]) {
+int main() {
     // Set up signal handlers
     signal(SIGINT, signalHandler);
     signal(SIGTERM, signalHandler);

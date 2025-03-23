@@ -19,7 +19,6 @@ add_executable(graph_tests
         src/dsa/ConcreteAlgoKruskal.cpp
         src/dsa/ConcreteAlgoPrim.cpp
         include/server/MSTServer.hpp
-        src/server/MSTServer.cpp
         include/active_object/MSTProxy.hpp
         include/active_object/MethodRequest.hpp
         include/active_object/ActivationQ.hpp
@@ -35,10 +34,8 @@ add_executable(graph_tests
         src/active_object/ActivationQ.cpp
         src/active_object/MSTPipeline.cpp
         src/active_object/MSTProxy.cpp
-        src/active_object/Scheduler.cpp
         include/server/MSTPipelineServer.hpp
         include/server/MSTPipelineServer.hpp
-        src/server/MSTPipelineServer.cpp
         include/server/MSTLeaderFollowersServer.hpp
         include/leader_followers/LFThreadPool.hpp
         include/leader_followers/Reactor.hpp

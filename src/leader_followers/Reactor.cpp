@@ -1,18 +1,8 @@
 #include "../../include/leader_followers/Reactor.hpp"
+pthread_mutex_t reactor_mtx = PTHREAD_MUTEX_INITIALIZER;
 
-
-
-/*
-* struct reactor {
-    fd_set fds;       / Master set of file descriptors /
-    int max_fd;              / Highest file descriptor value /
-    int running;             / Flag to control reactor loop /
-    reactorFunc r_funcs[MAX_FDS]; / Array of callback functions /
-    pthread_mutex_t r_mtx = PTHREAD_MUTEX_INITIALIZER; / reactor mutex /
-};
- */
-void * startReactor() {
-    reactor_t* reactor = (reactor_t*)malloc(sizeof(reactor_t));
+void *startReactor() {
+    reactor_t *reactor = (reactor_t *) malloc(sizeof(reactor_t));
     if (reactor == nullptr) {
         perror("Failed to allocate memory for reactor");
         return nullptr;
@@ -28,7 +18,8 @@ void * startReactor() {
 }
 
 int addFdToReactor(void *reactor, int fd, reactorFunc func) {
-    reactor_t* r = (reactor_t*)reactor;
+    pthread_mutex_lock(&reactor_mtx);
+    reactor_t *r = (reactor_t *) reactor;
 
     if (r == nullptr || fd < 0 || fd >= MAX_FDS || func == nullptr) {
         errno = EINVAL;
@@ -44,38 +35,39 @@ int addFdToReactor(void *reactor, int fd, reactorFunc func) {
 
     // Store the callback function
     r->r_funcs[fd] = func;
+    pthread_mutex_unlock(&reactor_mtx);
     return 0;
 }
 
 int removeFdFromReactor(void *reactor, int fd) {
-    reactor_t* r = (reactor_t*)reactor;
+    pthread_mutex_lock(&reactor_mtx);
+    reactor_t *r = (reactor_t *) reactor;
     if (r == nullptr || fd < 0 || fd >= MAX_FDS) {
         errno = EINVAL;
         return -1;
     }
-
     // Clear the file descriptor from the set
     FD_CLR(fd, &r->fds);
-
     // Clear the callback
     r->r_funcs[fd] = nullptr;
     // Recalculate max_fd if necessary
     if (fd == r->max_fd) {
-        // Start from the previous max_fd and search downward
         r->max_fd = -1;
         for (int i = fd - 1; i >= 0; i--) {
-            if (FD_ISSET(i, &r->fds)) {// Found the new highest fd
+            if (FD_ISSET(i, &r->fds)) {
+                // Found the new highest fd
                 r->max_fd = i;
                 break;
             }
         }
     }
-    //std::cout<<"removed socket "<<fd<<". max socket is "<<r->max_fd<<"\n";
+    pthread_mutex_unlock(&reactor_mtx);
     return r->max_fd;
 }
 
 int stopReactor(void *reactor) {
-    reactor_t* r = (reactor_t*)reactor;
+    pthread_mutex_lock(&reactor_mtx);
+    reactor_t *r = (reactor_t *) reactor;
     if (r == nullptr) {
         errno = EINVAL;
         return -1;
@@ -84,6 +76,7 @@ int stopReactor(void *reactor) {
     FD_ZERO(&r->fds);
     memset(r->r_funcs, 0, sizeof(r->r_funcs));
     free(r);
+    pthread_mutex_unlock(&reactor_mtx);
+    pthread_mutex_destroy(&reactor_mtx);
     return 0;
 }
-

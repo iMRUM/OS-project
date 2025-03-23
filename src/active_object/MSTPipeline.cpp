@@ -23,8 +23,6 @@ void MSTPipeline::processCommand(const std::string &input, int client_fd, functi
     std::string command;
     iss >> command;
 
-    std::cout << "MSTPipeline received command: '" << command << "'" << std::endl;
-
     MSTProxy *proxy = getProxy(client_fd);
 
     if (command == "new_graph") {

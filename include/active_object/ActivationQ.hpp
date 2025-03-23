@@ -26,28 +26,6 @@ public:
     // Dequeue a method request, blocking if the queue is empty
     MethodRequest *dequeue();
 
-    /*Try to dequeue with a timeout, returns nullptr if timed out
-    MethodRequest* dequeue(std::chrono::milliseconds timeout) {
-        std::unique_lock<std::mutex> lock(mutex);
-        
-        // Wait until there's at least one request in the queue or timeout
-        bool success = not_empty.wait_for(lock, timeout, [this] { 
-            return !requests.empty(); 
-        });
-        
-        if (!success) {
-            return nullptr;  // Timed out
-        }
-        
-        // Remove and return the next request
-        MethodRequest* request = requests.front();
-        requests.pop();
-        
-        // Notify threads waiting to enqueue
-        not_full.notify_one();
-        return request;
-    }*/
-
     // Check if the queue is empty
     bool isEmpty() const;
 
