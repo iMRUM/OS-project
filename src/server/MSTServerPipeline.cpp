@@ -1,81 +1,19 @@
-#include <iostream>
-#include <string>
-#include <sstream>
-#include <algorithm>
-#include <vector>
-#include <mutex>
-#include <pthread.h>
-#include <signal.h>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <string.h>
-#include <atomic>
 #include "../../include/server/Server.hpp"
 #include "../../include/active_object/MSTPipeline.hpp"
-// Forward declarations
-class MSTPipeline;
-void handleRequest(int clientfd);
-void handleCommand(int clientfd, const std::string &input_command);
-void *request_worker_function(void *arg);
-void signalHandler(int signal);
-void init();
-void stop();
-void start();
-void *get_in_addr(struct sockaddr *sa);
-
-//==============================================================================
-// Global variables and constants
-//==============================================================================
-
-#define PORT "9034"  // Port to listen on
-
-MSTPipeline* mstPipeline = nullptr;
-int listener = -1;  // Main server socket
-std::mutex pipelineMutex;  // Protect access to the pipeline
-std::mutex clientsMutex;   // Protect access to the client list
-std::vector<int> activeClients;  // Track active client sockets
-std::atomic<bool> running{false};   // Server running state
-
-//==============================================================================
-// Client handling
-//==============================================================================
-
+MSTPipeline* mstPipeline;
+std::binary_semaphore running(1);
 void *request_worker_function(void *arg) {
-    // Copy the client fd and free the memory
     int clientfd = *(int *) arg;
-    delete (int *) arg;
-
-    // Add client to active list
-    {
-        std::lock_guard<std::mutex> lock(clientsMutex);
-        activeClients.push_back(clientfd);
-    }
-
-    // Handle the client request
     handleRequest(clientfd);
-
-    // Remove client from active list
-    {
-        std::lock_guard<std::mutex> lock(clientsMutex);
-        activeClients.erase(std::remove(activeClients.begin(), activeClients.end(), clientfd),
-                           activeClients.end());
-    }
-
-    close(clientfd);
-    return nullptr;
+    return arg;
 }
 
 void handleRequest(int clientfd) {
     std::string welcome = "Welcome to the MST Server.\nType 'help' for available commands.\n";
     send(clientfd, welcome.c_str(), welcome.length(), 0);
-
     char buf[256];
     int nbytes;
-
-    while (running) {
+    for (;;) {
         // Receive data from client
         nbytes = recv(clientfd, buf, sizeof(buf) - 1, 0);
 
@@ -91,19 +29,12 @@ void handleRequest(int clientfd) {
         std::string data(buf);
         handleCommand(clientfd, data);
     }
-
-    std::cout << "Client on socket " << clientfd << " disconnected" << std::endl;
 }
-
-//==============================================================================
-// Command processing
-//==============================================================================
 
 void handleCommand(int clientfd, const std::string &input_command) {
     auto sendCallback = [clientfd](std::string response) {
         send(clientfd, response.c_str(), response.length(), 0);
     };
-
     // Process commands line by line
     std::istringstream stream(input_command);
     std::string line;
@@ -167,22 +98,6 @@ void handleCommand(int clientfd, const std::string &input_command) {
         } else if (lowerLine == "exit") {
             sendCallback("Goodbye!\n");
             close(clientfd);
-
-            // Remove client from active list
-            {
-                std::lock_guard<std::mutex> lock(clientsMutex);
-                activeClients.erase(std::remove(activeClients.begin(), activeClients.end(), clientfd),
-                                  activeClients.end());
-            }
-
-            // Notify pipeline of client disconnect
-            {
-                std::lock_guard<std::mutex> lock(pipelineMutex);
-                if (mstPipeline) {
-                    mstPipeline->removeProxy(clientfd);
-                }
-            }
-
             return;
         } else if (lowerLine == "resetgraph") {
             // Reset by creating a new empty graph
@@ -229,68 +144,28 @@ void handleCommand(int clientfd, const std::string &input_command) {
 
         std::cout << "Processing command: " << processedLine << std::endl; // Debug output
 
-        // Process the command through the pipeline - with mutex protection
-        {
-            std::lock_guard<std::mutex> lock(pipelineMutex);
-            if (mstPipeline) {
-                mstPipeline->processCommand(processedLine, clientfd, sendCallback);
-            } else {
-                sendCallback("Server error: Pipeline not initialized\n");
-            }
-        }
+        // Process the command through the pipeline
+        mstPipeline->processCommand(processedLine, clientfd, sendCallback);
     }
 }
 
-//==============================================================================
-// Server accept loop
-//==============================================================================
-
-void handleAcceptClient() {
-    struct sockaddr_storage client_addr;
-    socklen_t addrlen;
-    char remoteIP[INET6_ADDRSTRLEN];
-
-    std::cout << "Server started on port " << PORT << std::endl;
-    std::cout << "Waiting for connections..." << std::endl;
-
-    while (running) {
-        addrlen = sizeof client_addr;
-        int clientfd = accept(listener, (struct sockaddr *)&client_addr, &addrlen);
-
-        if (clientfd == -1) {
-            perror("accept");
-            continue;
-        }
-
-        // Print connection info
-        printf("Connection from %s\n",
-               inet_ntop(client_addr.ss_family,
-                        get_in_addr((struct sockaddr *)&client_addr),
-                        remoteIP, INET6_ADDRSTRLEN));
-
-        // Create a new thread to handle this client
+void handleAcceptClient(int fd_listener) {
+    for (;;) {
+        int clientfd = accept(fd_listener, NULL, NULL);
         pthread_t client_thread;
-        int* client_fd_ptr = new int(clientfd);  // Allocate new memory for the fd
-        pthread_create(&client_thread, nullptr, request_worker_function, client_fd_ptr);
+        pthread_create(&client_thread, nullptr, request_worker_function, &clientfd);
         pthread_detach(client_thread);
+        //client_threads.emplace_back(client_thread, handleRequest, clientfd);
     }
 }
-
-//==============================================================================
-// Server lifecycle
-//==============================================================================
 
 void init() {
+    running.acquire();
     int yes = 1; // for setsockopt() SO_REUSEADDR
     int rv;
     struct addrinfo hints, *ai, *p;
-
-    // Create pipeline (with mutex protection)
-    {
-        std::lock_guard<std::mutex> lock(pipelineMutex);
-        mstPipeline = new MSTPipeline();
-    }
-
+    int listener;
+    mstPipeline  = new MSTPipeline();
     // Set up the address info structure
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC;
@@ -333,72 +208,21 @@ void init() {
         perror("listen");
         exit(3);
     }
-
-    running = true;
 }
 
 void stop() {
-    std::cout << "Stopping server..." << std::endl;
-    running = false;
-
-    // Close listener socket
-    if (listener >= 0) {
-        close(listener);
-        listener = -1;
-    }
-
-    // Close all client connections
-    {
-        std::lock_guard<std::mutex> lock(clientsMutex);
-        for (int fd : activeClients) {
-            close(fd);
-        }
-        activeClients.clear();
-    }
-
-    // Shutdown and delete the pipeline
-    {
-        std::lock_guard<std::mutex> lock(pipelineMutex);
-        if (mstPipeline) {
-            mstPipeline->shutdown();
-            delete mstPipeline;
-            mstPipeline = nullptr;
-        }
-    }
-
-    std::cout << "Server stopped" << std::endl;
+    running.release();
+    mstPipeline->shutdown();
+    delete mstPipeline;
 }
 
 void start() {
-    // Initialize the server
     init();
-
-    // Start client accept thread
-    pthread_t accept_thread;
-    if (pthread_create(&accept_thread, nullptr, [](void*) -> void* {
-        handleAcceptClient();
-        return nullptr;
-    }, nullptr) != 0) {
-        perror("Failed to create accept thread");
-        stop();
-        exit(1);
-    }
-
-    // Wait for the accept thread to finish (will only happen if running becomes false)
-    pthread_join(accept_thread, nullptr);
+    running.acquire();
+    pthread_join(pthread_self(), nullptr);
 }
-
-//==============================================================================
-// Main function
-//==============================================================================
-
 int main(int argc, char *argv[]) {
-    // Set up signal handlers
     signal(SIGINT, signalHandler);
     signal(SIGTERM, signalHandler);
-
-    // Start the server
     start();
-
-    return 0;
 }
