@@ -22,32 +22,28 @@ class MSTPipeline;
 //==============================================================================
 
 MSTPipeline *pl = nullptr;
-int listener = -1; // Main server socket
-std::mutex pipeline_mtx; // Protect access to the pipeline
-std::mutex clients_mtx; // Protect access to the client list
+int listener = -1;
+std::mutex pipeline_mtx;
+std::mutex clients_mtx;
 pthread_mutex_t listener_mtx = PTHREAD_MUTEX_INITIALIZER;
-std::vector<int> active_clients; // Track active client sockets
-std::atomic<bool> running{false}; // Server running state
+std::vector<int> active_clients;
+std::atomic<bool> running{false};
 
 //==============================================================================
 // Client handling
 //==============================================================================
 
 void *request_worker_function(void *arg) {
-    // Copy the client fd and free the memory
     int clientfd = *(int *) arg;
     delete (int *) arg;
 
-    // Add client to active list
     {
         std::lock_guard<std::mutex> lock(clients_mtx);
         active_clients.push_back(clientfd);
     }
 
-    // Handle the client request
     handleRequest(clientfd);
 
-    // Remove client from active list
     {
         std::lock_guard<std::mutex> lock(clients_mtx);
         active_clients.erase(std::remove(active_clients.begin(), active_clients.end(), clientfd),
@@ -66,18 +62,11 @@ void handleRequest(int clientfd) {
     int nbytes;
 
     while (running) {
-        // Receive data from client
         nbytes = recv(clientfd, buf, sizeof(buf) - 1, 0);
-
         if (nbytes <= 0) {
-            // Connection closed or error
             break;
         }
-
-        // Null-terminate the received data
         buf[nbytes] = '\0';
-
-        // Process the received data
         std::string data(buf);
         handleCommand(clientfd, data);
     }
@@ -89,39 +78,29 @@ void handleCommand(int clientfd, const std::string &input_command) {
     };
 
     thread_local std::stringstream stream;
-    stream.clear();  // Clear error flags
-    stream.str(input_command);  // Set the content
+    stream.clear();
+    stream.str(input_command);
     std::string line;
 
     while (std::getline(stream, line)) {
-        // Remove carriage return if present
         if (!line.empty() && line.back() == '\r') {
             line.pop_back();
         }
-
-        // Skip empty lines
         if (line.empty()) {
             continue;
         }
 
-        // Convert to lowercase for case-insensitive comparison
         std::string lowerLine = line;
         std::transform(lowerLine.begin(), lowerLine.end(), lowerLine.begin(), ::tolower);
-
-        // Map client commands to our internal command format
         std::string processedLine;
 
         if (lowerLine.substr(0, 8) == "newgraph") {
-            // Extract the number of vertices
             std::istringstream iss(line);
             std::string cmd;
             int n;
-            iss >> cmd; // Extract "Newgraph"
-
+            iss >> cmd;
             if (iss >> n && n >= 0) {
                 processedLine = "new_graph " + std::to_string(n);
-
-                // If there's also an edge count, include it
                 int m;
                 if (iss >> m && m >= 0) {
                     processedLine += " " + std::to_string(m);
@@ -137,9 +116,7 @@ void handleCommand(int clientfd, const std::string &input_command) {
             std::istringstream iss(line);
             std::string cmd;
             iss >> cmd >> algo;
-
-            // Convert algorithm name to lowercase for case-insensitive comparison
-            std::transform(algo.begin(), algo.end(), algo.begin(), ::tolower);
+std::transform(algo.begin(), algo.end(), algo.begin(), ::tolower);
 
             if (algo == "kruskal") {
                 processedLine = "mst_kruskal";
@@ -152,15 +129,11 @@ void handleCommand(int clientfd, const std::string &input_command) {
         } else if (lowerLine == "exit") {
             sendCallback("Goodbye!\n");
             close(clientfd);
-
-            // Remove client from active list
             {
                 std::lock_guard<std::mutex> lock(clients_mtx);
                 active_clients.erase(std::remove(active_clients.begin(), active_clients.end(), clientfd),
                                      active_clients.end());
             }
-
-            // Notify pipeline of client disconnect
             {
                 std::lock_guard<std::mutex> lock(pipeline_mtx);
                 if (pl) {
@@ -170,7 +143,6 @@ void handleCommand(int clientfd, const std::string &input_command) {
 
             return;
         } else if (lowerLine == "resetgraph") {
-            // Reset by creating a new empty graph
             processedLine = "new_graph 0";
         } else if (lowerLine == "help") {
             std::string helpText = "Available commands:\n"
@@ -185,11 +157,10 @@ void handleCommand(int clientfd, const std::string &input_command) {
             sendCallback(helpText);
             continue;
         } else if (lowerLine.substr(0, 7) == "addedge") {
-            // Parse "AddEdge <source> <target> <weight>"
             std::istringstream iss(line);
             std::string cmd;
             int source, target, weight;
-            iss >> cmd; // Extract "AddEdge"
+            iss >> cmd;
 
             if (iss >> source >> target >> weight) {
                 processedLine = "add_edge " + std::to_string(source) + " " +
@@ -199,11 +170,9 @@ void handleCommand(int clientfd, const std::string &input_command) {
                 continue;
             }
         } else {
-            // Check if this is just a raw edge definition (when collecting edges)
-            std::istringstream iss(line);
+std::istringstream iss(line);
             int source, target, weight;
             if (iss >> source >> target >> weight) {
-                // This is likely an edge being added
                 processedLine = "add_edge " + std::to_string(source) + " " +
                                 std::to_string(target) + " " + std::to_string(weight);
             } else {
@@ -238,7 +207,6 @@ void handleAcceptClient() {
             perror("accept");
             continue;
         }
-        // Create a new thread to handle this client
         pthread_t client_thread;
         int *client_fd_ptr = new int(clientfd); // Allocate new memory for the fd
         pthread_create(&client_thread, nullptr, request_worker_function, client_fd_ptr);
@@ -255,7 +223,6 @@ void init() {
     int rv;
     struct addrinfo hints, *ai, *p;
 
-    // Create pipeline (with mutex protection)
     {
         std::lock_guard<std::mutex> lock(pipeline_mtx);
         pl = new MSTPipeline();
@@ -309,14 +276,12 @@ void init() {
 
 void stop() {
     running = false;
-    // Close listener socket
     pthread_mutex_lock(&listener_mtx);
     if (listener >= 0) {
         close(listener);
         listener = -1;
     }
     pthread_mutex_unlock(&listener_mtx);
-    // Close all client connections
     {
         std::lock_guard<std::mutex> lock(clients_mtx);
         for (int fd: active_clients) {
@@ -325,7 +290,6 @@ void stop() {
         active_clients.clear();
     }
 
-    // Shutdown and delete the pipeline
     {
         std::lock_guard<std::mutex> lock(pipeline_mtx);
         if (pl) {
@@ -338,10 +302,7 @@ void stop() {
 }
 
 void start() {
-    // Initialize the server
     init();
-
-    // Start client accept thread
     pthread_t accept_thread;
     if (pthread_create(&accept_thread, nullptr, [](void *) -> void *{
         handleAcceptClient();
@@ -351,9 +312,7 @@ void start() {
         stop();
         exit(1);
     }
-
-    // Wait for the accept thread to finish (will only happen if running becomes false)
-    pthread_join(accept_thread, nullptr);
+pthread_join(accept_thread, nullptr);
 }
 
 //==============================================================================
@@ -361,11 +320,8 @@ void start() {
 //==============================================================================
 
 int main() {
-    // Set up signal handlers
     signal(SIGINT, signalHandler);
     signal(SIGTERM, signalHandler);
-
-    // Start the server
     start();
 
     return 0;
