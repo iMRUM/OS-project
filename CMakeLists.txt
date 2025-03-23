@@ -16,7 +16,6 @@ add_executable(graph_tests
         src/dsa/UnionFind.cpp
         include/dsa/UnionFind.hpp
         include/server/Server.hpp
-        src/server/server.cpp
         src/dsa/ConcreteAlgoKruskal.cpp
         src/dsa/ConcreteAlgoPrim.cpp
         include/server/MSTServer.hpp

@@ -31,7 +31,7 @@ struct reactor {
     int max_fd;              /* Highest file descriptor value */
     int running;             /* Flag to control reactor loop */
     reactorFunc r_funcs[MAX_FDS]; /* Array of callback functions */
-    pthread_mutex_t r_mtx = PTHREAD_MUTEX_INITIALIZER;
+    pthread_mutex_t r_mtx;
 };
 
 typedef struct reactor reactor_t;
@@ -70,16 +70,5 @@ int removeFdFromReactor(void* reactor, int fd);
  */
 int stopReactor(void* reactor);
 
-/**
- * @brief Runs the reactor's event loop
- *
- * This function enters a blocking loop that monitors registered file
- * descriptors for activity and calls their associated callback functions
- * when activity is detected. The loop continues until stopReactor is called.
- *
- * @param reactor pointer to the reactor
- * @return 0 on success, -1 on failure
- */
-int runReactor(void* reactor);
 
 #endif /* REACTOR_H */

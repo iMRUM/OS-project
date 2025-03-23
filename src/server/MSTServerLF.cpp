@@ -1,23 +1,38 @@
+#include <functional>
 #include <map>
+
+#include "../../include/active_object/MSTServant.hpp"
 #include "../../include/leader_followers/LFThreadPool.hpp"
 #include "../../include/server/Server.hpp"
+//==============================================================================
+// Global variables
+//==============================================================================
 #define NUM_THREADS 4
 
-int isRunning = 0;
-LFThreadPool threadPool;
-pthread_mutex_t graph_mtx = PTHREAD_MUTEX_INITIALIZER;
+void executeCommand(const std::string &processedLine, int clientfd, std::function<void(std::string)> sendCallback);
 
-void* worker_function(void* arg) {
-    LFThreadPool* pool = static_cast<LFThreadPool*>(arg);
+//forward declaration
+std::atomic<bool> running{false}; // Server running state
+std::map<int, MSTServant *> client_servants;
+ConcreteAlgoFactory algoFactory;
+LFThreadPool *tp = new LFThreadPool();
+pthread_mutex_t servants_mtx = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t tp_mtx = PTHREAD_MUTEX_INITIALIZER;
+
+void *worker_function(void *arg) {
+    LFThreadPool *pool = static_cast<LFThreadPool *>(arg);
     pool->join(); // Thread joins the pool and follows leader-follower pattern
     return nullptr;
 }
-void init(){
+
+//==============================================================================
+// Server lifecycle
+//==============================================================================
+void init() {
     int listener;
     int yes = 1; // for setsockopt() SO_REUSEADDR, below
     int i, j, rv;
     struct addrinfo hints, *ai, *p;
-
     // get us a socket and bind it
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC;
@@ -58,34 +73,82 @@ void init(){
         perror("listen");
         exit(3);
     }
-    threadPool.addFd(listener, reactorFunc(handleAcceptClient));
+    tp->addFd(listener, reactorFunc(&handleAcceptClient));
+    // cout << "Server listening on socket " << listener << endl;
+    running = true;
 }
 
-void stop(){}
+void stop() {
+    running = false;
+    // Clean up all servants
+    pthread_mutex_lock(&servants_mtx);
+    for (auto &pair: client_servants) {
+        delete pair.second;
+    }
+    client_servants.clear();
+    pthread_mutex_unlock(&servants_mtx);
+    pthread_mutex_lock(&tp_mtx);
+    delete tp;
+    pthread_mutex_unlock(&tp_mtx);
+}
 
-void start(){}
+void start() {
+    init();
+    // Create worker threads for the thread pool
+    pthread_t threads[NUM_THREADS];
+
+    for (int i = 0; i < NUM_THREADS; i++) {
+        if (pthread_create(&threads[i], nullptr, worker_function, tp) != 0) {
+            perror("Failed to create thread");
+            return;
+        }
+        // std::cout << "Created worker thread " << threads[i] << std::endl;
+    }
+    while (running) {
+        sleep(1); // Sleep to avoid busy waiting
+    }
+    // Wait for all threads to finish
+    for (int i = 0; i < NUM_THREADS; i++) {
+        pthread_join(threads[i], nullptr);
+    }
+}
+
+//==============================================================================
+// Client handling
+//==============================================================================
 
 void handleRequest(int clientfd) {
-    char buf[256]; // buffer for client data
+    pthread_mutex_lock(&servants_mtx);
+    if (client_servants.find(clientfd) == client_servants.end()) {
+        client_servants[clientfd] = new MSTServant(algoFactory);
+    }
+    pthread_mutex_unlock(&servants_mtx);
+    char buf[256];
     int nbytes;
 
-    nbytes = recv(clientfd, buf, sizeof(buf) - 1, 0);
-    if (nbytes <= 0) {
-        // Got error or connection closed by client
-        if (nbytes == 0) {
-            // Connection closed
-            printf("Socket %d hung up\n", clientfd);
-        } else {
-            perror("recv");
-        }
-        close(clientfd);  // Close the socket if recv failed
-        return;
-    }
+    while (running) {
+        // Receive data from client
+        nbytes = recv(clientfd, buf, sizeof(buf) - 1, 0);
 
-    buf[nbytes] = '\0';
-    pthread_mutex_lock(&graph_mtx);
-    handleCommand(clientfd, buf);
-    pthread_mutex_unlock(&graph_mtx);
+        if (nbytes <= 0) {
+            // Connection closed or error
+            break;
+        }
+
+        // Null-terminate the received data
+        buf[nbytes] = '\0';
+
+        // Process the received data
+        std::string data(buf);
+        handleCommand(clientfd, data);
+    }
+    pthread_mutex_lock(&servants_mtx);
+    if (client_servants.find(clientfd) != client_servants.end()) {
+        delete client_servants[clientfd];
+        client_servants.erase(clientfd);
+    }
+    pthread_mutex_unlock(&servants_mtx);
+    //   std::cout << "Client on socket " << clientfd << " disconnected" << std::endl;
 }
 
 void handleCommand(int clientfd, const std::string &command) {
@@ -121,7 +184,7 @@ void handleCommand(int clientfd, const std::string &command) {
             std::istringstream iss(line);
             std::string cmd;
             int n;
-            iss >> cmd;  // Extract "Newgraph"
+            iss >> cmd; // Extract "Newgraph"
 
             if (iss >> n && n >= 0) {
                 processedLine = "new_graph " + std::to_string(n);
@@ -135,11 +198,9 @@ void handleCommand(int clientfd, const std::string &command) {
                 sendCallback("Invalid number of vertices. Usage: Newgraph <vertices> [<edges>]\n");
                 continue;
             }
-        }
-        else if (lowerLine == "printgraph") {
+        } else if (lowerLine == "printgraph") {
             processedLine = "print_graph";
-        }
-        else if (lowerLine.substr(0, 3) == "mst") {
+        } else if (lowerLine.substr(0, 3) == "mst") {
             std::string algo;
             std::istringstream iss(line);
             std::string cmd;
@@ -150,25 +211,20 @@ void handleCommand(int clientfd, const std::string &command) {
 
             if (algo == "kruskal") {
                 processedLine = "mst_kruskal";
-            }
-            else if (algo == "prim") {
+            } else if (algo == "prim") {
                 processedLine = "mst_prim";
-            }
-            else {
+            } else {
                 sendCallback("Invalid algorithm. Please use 'Kruskal' or 'Prim'.\n");
                 continue;
             }
-        }
-        else if (lowerLine == "exit") {
+        } else if (lowerLine == "exit") {
             sendCallback("Goodbye!\n");
             close(clientfd);
             return;
-        }
-        else if (lowerLine == "resetgraph") {
+        } else if (lowerLine == "resetgraph") {
             // Reset by creating a new empty graph
             processedLine = "new_graph 0";
-        }
-        else if (lowerLine == "help") {
+        } else if (lowerLine == "help") {
             std::string helpText = "Available commands:\n"
                     "  Newgraph <vertices> [<edges>] - Create a new graph with vertices and optional edges count\n"
                     "  AddEdge <source> <target> <weight> - Add an edge to the graph\n"
@@ -180,8 +236,7 @@ void handleCommand(int clientfd, const std::string &command) {
                     "  exit - Close connection\n";
             sendCallback(helpText);
             continue;
-        }
-        else if (lowerLine.substr(0, 7) == "addedge") {
+        } else if (lowerLine.substr(0, 7) == "addedge") {
             // Parse "AddEdge <source> <target> <weight>"
             std::istringstream iss(line);
             std::string cmd;
@@ -190,64 +245,101 @@ void handleCommand(int clientfd, const std::string &command) {
 
             if (iss >> source >> target >> weight) {
                 processedLine = "add_edge " + std::to_string(source) + " " +
-                               std::to_string(target) + " " + std::to_string(weight);
-            }
-            else {
+                                std::to_string(target) + " " + std::to_string(weight);
+            } else {
                 sendCallback("Invalid edge format. Usage: AddEdge <source> <target> <weight>\n");
                 continue;
             }
-        }
-        else {
+        } else {
             // Check if this is just a raw edge definition (when collecting edges)
             std::istringstream iss(line);
             int source, target, weight;
             if (iss >> source >> target >> weight) {
                 // This is likely an edge being added
                 processedLine = "add_edge " + std::to_string(source) + " " +
-                               std::to_string(target) + " " + std::to_string(weight);
-            }
-            else {
+                                std::to_string(target) + " " + std::to_string(weight);
+            } else {
                 sendCallback("Invalid command: " + line + "\n");
                 continue;
             }
         }
-
-        std::cout << "Processing command: " << processedLine << std::endl;  // Debug output
+        //     std::cout << "Processing command: " << processedLine << std::endl;
+        executeCommand(processedLine, clientfd, sendCallback);
     }
 }
 
 void handleAcceptClient(int fd_listener) {
-    std::cout << "Accepted connection THREAD, listening on socket " << fd_listener << std::endl;
-    int newfd;
+    //  std::cout << "Handling accept on listener " << fd_listener << std::endl;
+
+    // Accept the connection
+    int clientfd;
     struct sockaddr_storage remoteaddr;
     socklen_t addrlen = sizeof(remoteaddr);
 
-    if ((newfd = accept(fd_listener, (struct sockaddr *)&remoteaddr, &addrlen)) < 0) {
+    if ((clientfd = accept(fd_listener, (struct sockaddr *) &remoteaddr, &addrlen)) < 0) {
         perror("accept");
         return;
     }
 
-    threadPool.addFd(newfd, &handleRequest);  // Use direct function pointer
+    // std::cout << "Accepted new connection on fd " << clientfd << std::endl;
+    std::string welcome = "Welcome to the MST Server. Type 'help' for commands.\n";
+    send(clientfd, welcome.c_str(), welcome.length(), 0);
+    // Create a new thread to handle this client
+    pthread_mutex_lock(&tp_mtx);
+    tp->addFd(clientfd, &handleRequest); // Use direct function pointer
+    pthread_mutex_unlock(&tp_mtx);
 }
-int main() {
-    // Initialize the server (sets up the socket listener)
-    init();
 
-    // Create worker threads for the thread pool
-    pthread_t threads[NUM_THREADS];
+void executeCommand(const std::string &processedLine, int clientfd, std::function<void(std::string)> sendCallback) {
+    std::istringstream iss(processedLine);
+    std::string cmd;
+    iss >> cmd;
 
-    for (int i = 0; i < NUM_THREADS; i++) {
-        if (pthread_create(&threads[i], nullptr, worker_function, &threadPool) != 0) {
-            perror("Failed to create thread");
-            return 1;
+    pthread_mutex_lock(&servants_mtx);
+    auto it = client_servants.find(clientfd);
+    if (it == client_servants.end()) {
+        sendCallback("Error: Client session not found\n");
+        pthread_mutex_unlock(&servants_mtx);
+        return;
+    }
+    MSTServant *servant = it->second;
+    pthread_mutex_unlock(&servants_mtx);
+
+    if (cmd == "new_graph") {
+        int vertices = 0;
+        iss >> vertices;
+        servant->initGraph_i(vertices);
+        sendCallback("Created new graph with " + std::to_string(vertices) + " vertices\n");
+    } else if (cmd == "add_edge") {
+        int src, dest, weight;
+        if (iss >> src >> dest >> weight) {
+            servant->addEdge_i(src, dest, weight);
+            sendCallback("Added edge: " + std::to_string(src) + " -> " +
+                         std::to_string(dest) + " (weight: " + std::to_string(weight) + ")\n");
         }
-        std::cout << "Created worker thread " << threads[i] << std::endl;
+    } else if (cmd == "print_graph") {
+        std::string graphStr = servant->toString_i();
+        sendCallback("Graph structure:\n" + graphStr);
+    } else if (cmd == "mst_kruskal") {
+        MST result = servant->getMST_i("kruskal");
+        std::string response = "MST using Kruskal's algorithm:\n";
+        response += "Total weight: " + std::to_string(result.getTotalWeight()) + "\n";
+        sendCallback(response);
+    } else if (cmd == "mst_prim") {
+        MST result = servant->getMST_i("prim");
+        std::string response = "MST using Prim's algorithm:\n";
+        response += "Total weight: " + std::to_string(result.getTotalWeight()) + "\n";
+        sendCallback(response);
     }
+}
 
-    // Wait for all threads to finish
-    for (int i = 0; i < NUM_THREADS; i++) {
-        pthread_join(threads[i], nullptr);
-    }
+int main() {
+    // Set up signal handlers
+    signal(SIGINT, signalHandler);
+    signal(SIGTERM, signalHandler);
+
+    // Start the server
+    start();
 
     return 0;
 }

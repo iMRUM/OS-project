@@ -23,7 +23,7 @@ void * startReactor() {
     reactor->max_fd = -1;
     reactor->running = 1;
     memset(reactor->r_funcs, 0, sizeof(reactor->r_funcs));
-
+    pthread_mutex_init(&(reactor->r_mtx), NULL);
     return reactor;
 }
 
@@ -49,7 +49,6 @@ int addFdToReactor(void *reactor, int fd, reactorFunc func) {
 
 int removeFdFromReactor(void *reactor, int fd) {
     reactor_t* r = (reactor_t*)reactor;
-    pthread_mutex_lock(&(r->r_mtx));
     if (r == nullptr || fd < 0 || fd >= MAX_FDS) {
         errno = EINVAL;
         return -1;
@@ -71,37 +70,8 @@ int removeFdFromReactor(void *reactor, int fd) {
             }
         }
     }
-    pthread_mutex_unlock(&(r->r_mtx));
-    std::cout<<"removed socket "<<fd<<". max socket is "<<r->max_fd<<"\n";
+    //std::cout<<"removed socket "<<fd<<". max socket is "<<r->max_fd<<"\n";
     return r->max_fd;
-}
-
-int runReactor(void *reactor) {
-    reactor_t* r = (reactor_t*)reactor;
-    if (r == nullptr) {
-        errno = EINVAL;
-        return -1;
-    }
-
-    while (r->running) {
-        fd_set read_fds = r->fds;  // to preserve the master set
-        // Wait for activity on one of the sockets
-        if (select(r->max_fd + 1, &read_fds, nullptr, nullptr, nullptr) == -1) {
-            perror("runReactor: select");
-            return -1;
-        }
-
-        // Check all sockets with activity
-        for (int i = 0; i <= r->max_fd; i++) {
-            if (FD_ISSET(i, &read_fds)) {
-                if (r->r_funcs[i] != nullptr) {
-                    r->r_funcs[i](i);  // Call the callback function
-                    return 1;
-                }
-            }
-        }
-    }
-    return 0;
 }
 
 int stopReactor(void *reactor) {

@@ -16,14 +16,13 @@ private:
     std::atomic<bool> running{true};
 
 public:
-    LFThreadPool(reactor_t *reactor_ptr = (reactor_t *) startReactor()): reactor_p(reactor_ptr), leader_semaphore(1) {
-        std::cout << "[LFThreadPool] Creating thread pool..." << std::endl;
+    LFThreadPool(reactor_t *reactor_ptr = (reactor_t *) startReactor()): reactor_p(reactor_ptr), leader_semaphore(1), running(true) {
+       // std::cout << "[LFThreadPool] Creating thread pool..." << std::endl;
     }
 
     ~LFThreadPool() {
         stopReactor(reactor_p);
-        std::cout << "[LFThreadPool] Destroying thread pool..." << std::endl;
-        free(reactor_p);
+        //std::cout << "[LFThreadPool] Destroying thread pool..." << std::endl;
     }
 
     void addFd(int fd, reactorFunc func);
