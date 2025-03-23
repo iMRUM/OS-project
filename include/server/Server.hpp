@@ -19,7 +19,7 @@
 #include "../dsa/Graph.hpp"
 #include "../dsa/MST.hpp"
 #include "../commands.hpp"
-
+#include "../factory/ConcreteAlgoFactory.hpp"
 struct sockaddr_storage remoteaddr; // client address
 socklen_t addrlen;
 
@@ -27,16 +27,15 @@ socklen_t addrlen;
 char remoteIP[INET6_ADDRSTRLEN];
 
 void *get_in_addr(struct sockaddr *sa);
+void signalHandler(int signum);
 
-void handleRequest(void* client_attr);
+void handleRequest(int clientfd);
 
 void handleCommand(int clientfd, const std::string &input_command);
 
 void handleAcceptClient(int fd_listener);
 
 void init();
-
-int run();
 
 void stop();
 

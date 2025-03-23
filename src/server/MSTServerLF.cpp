@@ -61,8 +61,6 @@ void init(){
     threadPool.addFd(listener, reactorFunc(handleAcceptClient));
 }
 
-int run(){}
-
 void stop(){}
 
 void start(){}
